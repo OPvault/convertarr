@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block toolbar %}
+<div class="toolbar">
+    <a class="tool-btn" href="/movies" title="Back to Movies">
+        <span class="icon">←</span><span>Back</span>
+    </a>
+    {% if movie.has_file %}
+    <button class="tool-btn"
+            hx-post="/movies/{{ movie.instance_id }}/{{ movie.id }}/rescan"
+            hx-swap="none"
+            hx-on::after-request="
+                const r = JSON.parse(event.detail.xhr.responseText);
+                document.getElementById('rescan-result').textContent =
+                    r.queued ? ('queued #' + (r.queued ? '✓' : '')) : (r.skipped ? 'already in spec' : 'failed');">
+        <span class="icon">↻</span><span>Rescan</span>
+    </button>
+    <span id="rescan-result" class="muted" style="margin-left: 0.5rem; align-self: center"></span>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-poster" {% if movie.poster_proxy %}style="background-image: url('{{ movie.poster_proxy }}')"{% endif %}></div>
+    <div class="hero-info">
+        <h1 class="hero-title">
+            {{ movie.title }}
+            {% if movie.year %}<span class="hero-year">({{ movie.year }})</span>{% endif %}
+        </h1>
+        <div class="hero-meta">
+            {% if movie.studio %}<span>{{ movie.studio }}</span>{% endif %}
+            {% if movie.runtime %}<span>{{ movie.runtime }} min</span>{% endif %}
+            {% if movie.status %}<span>{{ movie.status|capitalize }}</span>{% endif %}
+            <span>{{ "downloaded" if movie.has_file else "missing" }}</span>
+        </div>
+        {% if movie.genres %}
+        <div class="hero-tags">
+            {% for g in movie.genres %}<span class="tag">{{ g }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        <p class="hero-overview">{{ movie.overview or "No overview available." }}</p>
+        <div class="dim" style="font-size: 0.78rem; margin-top: 0.5rem">
+            via <strong>{{ movie.instance_name }}</strong>
+        </div>
+    </div>
+</section>
+
+<h2>File</h2>
+{% if movie.has_file %}
+<table>
+    <tbody>
+        <tr>
+            <th style="width: 140px">Path</th>
+            <td class="dim">{{ movie.file_path or "—" }}</td>
+        </tr>
+        <tr>
+            <th>Size</th>
+            <td>{% if movie.file_size %}{{ "%.2f"|format(movie.file_size / 1024 / 1024 / 1024) }} GB{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+            <th>Codec</th>
+            <td>
+                <span class="kbd">{{ movie.video_codec or "?" }}</span>
+                <span class="kbd">{{ movie.audio_codec or "?" }}{% if movie.audio_channels %} {{ movie.audio_channels }}ch{% endif %}</span>
+                {% if movie.resolution %}<span class="kbd">{{ movie.resolution }}</span>{% endif %}
+            </td>
+        </tr>
+    </tbody>
+</table>
+{% else %}
+<div class="empty">
+    <div class="empty-icon">▣</div>
+    <div>No file downloaded yet.</div>
+</div>
+{% endif %}
+{% endblock %}

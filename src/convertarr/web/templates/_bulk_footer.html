@@ -1,0 +1,12 @@
+{# Sticky footer shown while bulk-select is active. Expects {{ scope }}. #}
+<div class="bulk-footer" data-bulk-footer="{{ scope }}" hidden>
+    <div class="bulk-footer-info">
+        <span class="bulk-count">0</span> selected
+    </div>
+    <div class="bulk-footer-actions">
+        <button type="button" class="ghost" data-bulk-action="select-all">Select all</button>
+        <button type="button" class="ghost" data-bulk-action="clear">Clear</button>
+        <button type="button" data-bulk-action="convert">Convert</button>
+        <button type="button" class="ghost" data-bulk-action="cancel">Cancel</button>
+    </div>
+</div>

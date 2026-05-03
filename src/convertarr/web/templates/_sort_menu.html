@@ -1,0 +1,34 @@
+{# Sonarr-style Sort dropdown.
+
+  Inputs:
+    scope                -- "series" | "movies"
+    selected_filter      -- the current filter param (passed through in URLs)
+    selected_sort        -- the current sort key
+    selected_dir         -- "asc" | "desc"
+    selected_sort_label  -- pre-resolved label for the active key
+    sort_options         -- [{key, label}]
+#}
+<details class="filter-menu" id="sort-menu-{{ scope }}">
+    <summary class="tool-btn" title="Sort">
+        <span class="icon">⇅</span>
+        <span>Sort: {{ selected_sort_label }} {% if selected_dir == "desc" %}↓{% else %}↑{% endif %}</span>
+    </summary>
+    <div class="filter-menu-panel">
+        {% for opt in sort_options %}
+            {# Click on the active option toggles direction; click on a different
+               option switches to it with default ascending. #}
+            {% if opt.key == selected_sort %}
+                {% set next_dir = "desc" if selected_dir == "asc" else "asc" %}
+            {% else %}
+                {% set next_dir = "asc" %}
+            {% endif %}
+            <a class="filter-menu-item {% if opt.key == selected_sort %}selected{% endif %}"
+               href="?filter={{ selected_filter }}&sort={{ opt.key }}&dir={{ next_dir }}">
+                {{ opt.label }}
+                {% if opt.key == selected_sort %}
+                    <span class="sort-arrow">{% if selected_dir == "desc" %}↓{% else %}↑{% endif %}</span>
+                {% endif %}
+            </a>
+        {% endfor %}
+    </div>
+</details>

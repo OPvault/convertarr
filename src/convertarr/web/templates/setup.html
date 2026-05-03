@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome — Convertarr</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="auth-body">
+    <main class="auth-card">
+        <div class="auth-brand">
+            <img class="logo logo-lg" src="/static/icon.svg" alt="Convertarr">
+            <span class="brand-text">Convertarr</span>
+        </div>
+        <h1 style="margin: 0 0 0.5rem; font-size: 1.2rem; font-weight: 600">First-time setup</h1>
+        <p class="dim" style="margin: 0 0 1rem; font-size: 0.85rem">
+            Set the admin login. You can change it later in Settings → General.
+        </p>
+        {% if error %}
+            <div class="auth-error">
+                {% if error == "weak" %}Password must be at least 6 characters.
+                {% elif error == "mismatch" %}Passwords don't match.
+                {% else %}Please fill in all fields.{% endif %}
+            </div>
+        {% endif %}
+        <form method="post" action="/setup">
+            <div class="form-row">
+                <label>Username</label>
+                <input type="text" name="username" value="{{ default_username }}" autocomplete="username" autofocus required>
+            </div>
+            <div class="form-row">
+                <label>Password</label>
+                <input type="password" name="password" autocomplete="new-password" required minlength="6">
+            </div>
+            <div class="form-row">
+                <label>Confirm password</label>
+                <input type="password" name="password_confirm" autocomplete="new-password" required minlength="6">
+            </div>
+            <button type="submit" style="width: 100%">Create account</button>
+        </form>
+    </main>
+</body>
+</html>

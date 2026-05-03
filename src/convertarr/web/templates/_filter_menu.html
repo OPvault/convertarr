@@ -1,0 +1,76 @@
+{# Sonarr-style filter dropdown. Renders inline in the toolbar.
+
+  Inputs (passed by the parent route):
+    scope            -- "series" | "movies"
+    selected_filter  -- e.g. "all", "monitored", "custom-7"
+    builtin_filters  -- [{key, label}]
+    custom_filters   -- [{id, name, clauses}]
+#}
+{% set selected_label = "All" %}
+{% for b in builtin_filters %}{% if b.key == selected_filter %}{% set selected_label = b.label %}{% endif %}{% endfor %}
+{% for c in custom_filters %}{% if "custom-" ~ c.id == selected_filter %}{% set selected_label = c.name %}{% endif %}{% endfor %}
+
+<details class="filter-menu" id="filter-menu-{{ scope }}">
+    <summary class="tool-btn" title="Filter">
+        <span class="icon">▾</span><span>Filter: {{ selected_label }}</span>
+    </summary>
+    <div class="filter-menu-panel">
+        {% set keep_sort = "&sort=" ~ selected_sort ~ "&dir=" ~ selected_dir if selected_sort else "" %}
+        {% for b in builtin_filters %}
+        <a class="filter-menu-item {% if b.key == selected_filter %}selected{% endif %}"
+           href="?filter={{ b.key }}{{ keep_sort }}">
+            {{ b.label }}
+        </a>
+        {% endfor %}
+        {% if custom_filters %}
+        <div class="filter-menu-sep"></div>
+        {% for c in custom_filters %}
+        <a class="filter-menu-item {% if 'custom-' ~ c.id == selected_filter %}selected{% endif %}"
+           href="?filter=custom-{{ c.id }}{{ keep_sort }}">
+            {{ c.name }}
+        </a>
+        {% endfor %}
+        {% endif %}
+        <div class="filter-menu-sep"></div>
+        <button type="button" class="filter-menu-item" onclick="convertarrOpenFilterBuilder('{{ scope }}')">
+            Custom Filters…
+        </button>
+    </div>
+</details>
+
+<dialog id="filter-builder-{{ scope }}" class="filter-dialog">
+    <form method="dialog" class="filter-dialog-inner">
+        <header class="filter-dialog-header">
+            <h2>Custom Filters</h2>
+            <button type="submit" class="ghost icon-only" aria-label="Close" value="cancel">×</button>
+        </header>
+        <div class="filter-dialog-body" id="filter-list-{{ scope }}">
+            <div class="dim">Loading…</div>
+        </div>
+        <footer class="filter-dialog-footer">
+            <button type="button" onclick="convertarrShowFilterEditor('{{ scope }}', null)">Add Custom Filter</button>
+            <button type="submit" class="ghost" value="cancel">Close</button>
+        </footer>
+    </form>
+</dialog>
+
+<dialog id="filter-editor-{{ scope }}" class="filter-dialog">
+    <form id="filter-editor-form-{{ scope }}" class="filter-dialog-inner" onsubmit="return convertarrSaveFilter(event, '{{ scope }}')">
+        <header class="filter-dialog-header">
+            <h2 id="filter-editor-title-{{ scope }}">Edit Custom Filter</h2>
+            <button type="button" class="ghost icon-only" aria-label="Close" onclick="document.getElementById('filter-editor-{{ scope }}').close()">×</button>
+        </header>
+        <div class="filter-dialog-body">
+            <div class="form-row">
+                <label>Label</label>
+                <input type="text" id="filter-name-{{ scope }}" required style="max-width: none">
+            </div>
+            <label>Filters</label>
+            <div id="filter-clauses-{{ scope }}" class="filter-clauses"></div>
+        </div>
+        <footer class="filter-dialog-footer">
+            <button type="submit">Save</button>
+            <button type="button" class="ghost" onclick="document.getElementById('filter-editor-{{ scope }}').close()">Cancel</button>
+        </footer>
+    </form>
+</dialog>

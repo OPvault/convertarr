@@ -1,0 +1,67 @@
+{# HTMX-polled fragment for the dashboard's "Currently running" + queued summary. #}
+<div class="card card-row">
+    <div>
+        <strong>Active encoder:</strong> {{ active_encoder_label }}
+        <span class="dim"> &middot; auto-detected on startup</span>
+    </div>
+    <div class="row-actions">
+        <span class="badge queued">{{ queued_count }} queued</span>
+        <span class="badge running">{{ running|length }} running</span>
+        <span class="badge done">{{ done_count }} done</span>
+        {% if failed_count %}<span class="badge failed">{{ failed_count }} failed</span>{% endif %}
+    </div>
+</div>
+
+<h2>Currently running</h2>
+{% if running %}
+<table>
+    <thead>
+        <tr>
+            <th style="width:60px">Job</th>
+            <th>Title</th>
+            <th>Progress</th>
+            <th style="width:90px">Time left</th>
+            <th style="width:80px">Speed</th>
+            <th style="width:80px">FPS</th>
+            <th style="width:120px">Encoder</th>
+            <th style="width:60px"></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for j in running %}
+    <tr>
+        <td class="dim">#{{ j.id }}</td>
+        <td>{{ j.title or "-" }}</td>
+        <td>
+            <div class="progress">
+                <div style="width: {{ j.progress }}%"></div>
+                <span class="progress-label">{{ "%.1f"|format(j.progress) }}%</span>
+            </div>
+        </td>
+        <td>{% if j.eta and j.eta != "—" %}{{ j.eta }}{% else %}<span class="dim">—</span>{% endif %}</td>
+        <td>{% if j.speed %}{{ "%.2f"|format(j.speed) }}x{% else %}<span class="dim">—</span>{% endif %}</td>
+        <td>{% if j.fps %}{{ "%.0f"|format(j.fps) }}{% else %}<span class="dim">—</span>{% endif %}</td>
+        <td><span class="kbd">{{ j.encoder or "-" }}</span></td>
+        <td style="text-align: right">
+            {% if j.state == "running" %}
+            <button class="ghost icon-only" title="Cancel"
+                    hx-post="/queue/{{ j.id }}/cancel"
+                    hx-swap="none">×</button>
+            {% elif j.state == "cancelling" %}
+            <span class="dim" style="font-size: 0.78rem">stopping…</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty">
+    <div class="empty-icon">⏸</div>
+    <div>No running jobs.</div>
+    <div class="dim" style="margin-top:0.5rem">
+        Quick start: <a href="/settings">add a Sonarr/Radarr instance</a>, then go to
+        <a href="/series">Series</a> or <a href="/movies">Movies</a> and click Rescan.
+    </div>
+</div>
+{% endif %}

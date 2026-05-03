@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% set scope = "series" %}
+
+{% block toolbar %}
+<div class="toolbar">
+    {% include "_filter_menu.html" %}
+    {% include "_sort_menu.html" %}
+    <div class="toolbar-spacer"></div>
+    {% include "_select_toolbar.html" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Series</h1>
+
+{% if not groups %}
+    <div class="empty">
+        <div class="empty-icon">▦</div>
+        <div>No Sonarr instances configured.</div>
+        <div class="dim" style="margin-top:0.5rem"><a href="/settings">Add one in Settings</a></div>
+    </div>
+{% endif %}
+
+{% for g in groups %}
+    <h2>{{ g.instance_name }} <span class="dim" style="font-weight:400; font-size:0.85rem; margin-left:0.5rem">{{ g.shown }} of {{ g.total }}</span></h2>
+    {% if g.error %}
+        <div class="card error-card">
+            <strong>Error connecting:</strong>
+            <code>{{ g.error }}</code>
+        </div>
+    {% elif not g.entries %}
+        <div class="empty">No series in this instance.</div>
+    {% else %}
+        <div class="poster-grid" data-scope="series">
+        {% for s in g.entries %}
+            <a class="poster" href="/series/{{ g.instance_id }}/{{ s.id }}" data-title="{{ s.title }}"
+               data-instance-id="{{ g.instance_id }}" data-entity-id="{{ s.id }}">
+                <div class="poster-image" {% if s.poster_proxy %}style="background-image: url('{{ s.poster_proxy }}')"{% endif %}>
+                </div>
+                <div class="poster-body">
+                    <div class="poster-title" title="{{ s.title }}">{{ s.title }}</div>
+                    <div class="poster-meta">
+                        <span>{{ s.year or "" }}</span>
+                        <span>{{ s.episode_file_count }} files</span>
+                    </div>
+                </div>
+            </a>
+        {% endfor %}
+        </div>
+    {% endif %}
+{% endfor %}
+
+{% include "_bulk_footer.html" %}
+{% endblock %}

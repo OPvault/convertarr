@@ -1,0 +1,33 @@
+{% if not rows %}
+    <tr><td colspan="9"><div class="empty" style="margin: 0; padding: 3rem"><div class="empty-icon">≡</div>Queue is empty.</div></td></tr>
+{% endif %}
+{% for r in rows %}
+<tr>
+    <td class="dim">#{{ r.id }}</td>
+    <td><span class="badge {{ r.state }}">{{ r.state }}</span></td>
+    <td>
+        <div>{{ r.title or "—" }}</div>
+        <div class="dim" style="font-size:0.78rem; margin-top:0.2rem">{{ r.path }}</div>
+    </td>
+    <td>
+        <div class="progress">
+            <div style="width: {{ r.progress }}%"></div>
+            <span class="progress-label">{{ r.progress }}%</span>
+        </div>
+    </td>
+    <td>{% if r.eta and r.eta != "—" %}{{ r.eta }}{% else %}<span class="dim">—</span>{% endif %}</td>
+    <td>{% if r.speed %}{{ "%.2f"|format(r.speed) }}x{% else %}<span class="dim">—</span>{% endif %}</td>
+    <td>{% if r.fps %}{{ "%.0f"|format(r.fps) }}{% else %}<span class="dim">—</span>{% endif %}</td>
+    <td><span class="kbd">{{ r.encoder or "-" }}</span></td>
+    <td style="text-align: right">
+        {% if r.state in ("queued", "running") %}
+        <button class="ghost icon-only"
+                title="Cancel"
+                hx-post="/queue/{{ r.id }}/cancel"
+                hx-swap="none">×</button>
+        {% elif r.state == "cancelling" %}
+        <span class="dim" style="font-size: 0.78rem">stopping…</span>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}

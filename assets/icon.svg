@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#0E7C72"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="3" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.25"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="100" ry="100" fill="url(#bg)"/>
+
+  <g filter="url(#shadow)" fill="#ffffff">
+    <!-- Bold C: outer r=160, inner r=95, wedge ±55° on the right -->
+    <path d="M 347.77 124.94
+             A 160 160 0 1 0 347.77 387.06
+             L 310.49 333.82
+             A 95 95 0 1 1 310.49 178.18 Z"/>
+    <!-- Play triangle inside the C opening -->
+    <path d="M 340 214 L 340 298 L 408 256 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>System — Backup</h1>
+
+{% if status == 'imported' %}
+<div class="card" style="border-color: var(--green); background: var(--tint-green)">
+    <strong style="color: var(--green)">Config imported successfully.</strong>
+</div>
+{% elif status == 'invalid' %}
+<div class="card error-card">
+    <strong>Import failed</strong> — file isn't a valid Convertarr config JSON.
+</div>
+{% endif %}
+
+<h2>Export</h2>
+<div class="card">
+    <p style="margin: 0 0 1rem">
+        Download a portable JSON containing your Sonarr/Radarr instances, path mappings, saved filters,
+        and runtime settings. <span class="dim">Excludes media history, jobs, and the poster cache —
+        those rebuild automatically.</span>
+    </p>
+    <a href="/system/backup/export" class="btn" style="display: inline-block; text-decoration: none">
+        Download config JSON
+    </a>
+</div>
+
+<h2>Import</h2>
+<div class="card">
+    <p style="margin: 0 0 1rem">
+        Restore a previously-exported config. <span style="color: var(--orange)">⚠️ This replaces all
+        existing instances, mappings, and filters.</span> Job history and media records are kept.
+    </p>
+    <p class="dim" style="font-size: 0.85rem; margin: 0 0 1rem">
+        Note: the API key and password hash from the file are <strong>ignored</strong> on import — your
+        current ones stay in place.
+    </p>
+    <form method="post" action="/system/backup/import" enctype="multipart/form-data"
+          onsubmit="return confirm('This will overwrite existing instances, mappings, and filters. Continue?');">
+        <div class="form-row">
+            <input type="file" name="file" accept="application/json,.json" required>
+        </div>
+        <button type="submit" class="danger">Import config</button>
+    </form>
+</div>
+{% endblock %}

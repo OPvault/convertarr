@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block toolbar %}
+<div class="toolbar">
+    <a class="tool-btn" href="/series" title="Back to Series">
+        <span class="icon">←</span><span>Back</span>
+    </a>
+    <button class="tool-btn"
+            hx-post="/series/{{ series.instance_id }}/{{ series.id }}/rescan"
+            hx-swap="none"
+            hx-on::after-request="
+                const r = JSON.parse(event.detail.xhr.responseText);
+                document.getElementById('rescan-result').textContent =
+                    r.queued + ' queued · ' + r.skipped + ' ok' + (r.failed ? ' · ' + r.failed + ' failed' : '');">
+        <span class="icon">↻</span><span>Rescan all</span>
+    </button>
+    <span id="rescan-result" class="muted" style="margin-left: 0.5rem; align-self: center"></span>
+</div>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-poster" {% if series.poster_proxy %}style="background-image: url('{{ series.poster_proxy }}')"{% endif %}></div>
+    <div class="hero-info">
+        <h1 class="hero-title">
+            {{ series.title }}
+            {% if series.year %}<span class="hero-year">({{ series.year }})</span>{% endif %}
+        </h1>
+        <div class="hero-meta">
+            {% if series.network %}<span>{{ series.network }}</span>{% endif %}
+            {% if series.status %}<span>{{ series.status|capitalize }}</span>{% endif %}
+            {% if series.stats.episodeCount %}<span>{{ series.stats.episodeCount }} episodes</span>{% endif %}
+            {% if series.stats.episodeFileCount %}<span>{{ series.stats.episodeFileCount }} downloaded</span>{% endif %}
+        </div>
+        {% if series.genres %}
+        <div class="hero-tags">
+            {% for g in series.genres %}<span class="tag">{{ g }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        <p class="hero-overview">{{ series.overview or "No overview available." }}</p>
+        <div class="dim" style="font-size: 0.78rem; margin-top: 0.5rem">
+            via <strong>{{ series.instance_name }}</strong>
+        </div>
+    </div>
+</section>
+
+{% for season_num, episodes in series.seasons %}
+<div class="season-header">
+    <h2 style="margin: 0">{{ "Specials" if season_num == 0 else "Season " ~ season_num }}</h2>
+    <button class="ghost"
+            hx-post="/series/{{ series.instance_id }}/{{ series.id }}/season/{{ season_num }}/rescan"
+            hx-swap="outerHTML"
+            hx-on::after-request="
+                const r = JSON.parse(event.detail.xhr.responseText);
+                this.outerHTML = '<span class=&quot;badge ' +
+                    (r.queued ? 'queued' : (r.failed ? 'failed' : 'done')) + '&quot;>' +
+                    r.queued + ' queued · ' + r.skipped + ' ok' +
+                    (r.failed ? ' · ' + r.failed + ' failed' : '') + '</span>';">
+        Rescan season
+    </button>
+</div>
+<table>
+    <thead>
+        <tr>
+            <th style="width: 50px">#</th>
+            <th>Title</th>
+            <th style="width: 110px">Aired</th>
+            <th style="width: 240px">Codec</th>
+            <th style="width: 80px">Size</th>
+            <th style="width: 130px">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in episodes %}
+        <tr>
+            <td class="dim">{{ e.number }}</td>
+            <td>{{ e.title or "—" }}</td>
+            <td class="dim">{{ e.air_date or "—" }}</td>
+            <td>
+                {% if e.has_file %}
+                    <span class="kbd">{{ e.video_codec or "?" }}</span>
+                    <span class="kbd">{{ e.audio_codec or "?" }}{% if e.audio_channels %} {{ e.audio_channels }}ch{% endif %}</span>
+                {% else %}
+                    <span class="dim">no file</span>
+                {% endif %}
+            </td>
+            <td class="dim">
+                {% if e.size_bytes %}
+                    {{ "%.2f"|format(e.size_bytes / 1024 / 1024 / 1024) }} GB
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if e.has_file and e.episode_file_id %}
+                <button
+                    hx-post="/series/{{ series.instance_id }}/episodefile/{{ e.episode_file_id }}/rescan"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="
+                        const r = JSON.parse(event.detail.xhr.responseText);
+                        this.outerHTML = '<span class=&quot;badge ' +
+                            (r.queued ? 'queued' : (r.failed ? 'failed' : 'done')) +
+                            '&quot;>' +
+                            (r.queued ? 'queued #' + r.job_id : (r.failed ? 'failed' : 'ok')) +
+                            '</span>';"
+                    style="padding: 0.3rem 0.7rem; font-size: 0.78rem">
+                    Rescan
+                </button>
+                {% else %}
+                <span class="dim">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Convertarr{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <script src="/static/filters.js" defer></script>
+    <script src="/static/select.js" defer></script>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <img class="logo" src="/static/icon.svg" alt="Convertarr">
+                <span class="brand-text">Convertarr</span>
+            </div>
+            <nav class="nav-primary">
+                <a href="/" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+                    <span class="nav-icon">▶</span><span class="nav-label">Dashboard</span>
+                </a>
+                <a href="/series" class="nav-item {% if active == 'series' %}active{% endif %}">
+                    <span class="nav-icon">▦</span><span class="nav-label">Series</span>
+                </a>
+                <a href="/movies" class="nav-item {% if active == 'movies' %}active{% endif %}">
+                    <span class="nav-icon">▣</span><span class="nav-label">Movies</span>
+                </a>
+                <div class="nav-section">Activity</div>
+                <a href="/queue" class="nav-item {% if active == 'queue' %}active{% endif %}">
+                    <span class="nav-icon">≡</span><span class="nav-label">Queue</span>
+                </a>
+                <a href="/history" class="nav-item {% if active == 'history' %}active{% endif %}">
+                    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></span><span class="nav-label">History</span>
+                </a>
+
+                <details class="nav-group" data-nav-group="settings" {% if active.startswith('settings') %}open{% endif %}>
+                    <summary class="nav-item {% if active.startswith('settings') %}active{% endif %}">
+                        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="nav-label">Settings</span>
+                        <span class="nav-chevron">▾</span>
+                    </summary>
+                    <a href="/settings/general" class="nav-sub {% if active == 'settings/general' %}active{% endif %}">General</a>
+                    <a href="/settings/sonarr"  class="nav-sub {% if active == 'settings/sonarr' %}active{% endif %}">Sonarr</a>
+                    <a href="/settings/radarr"  class="nav-sub {% if active == 'settings/radarr' %}active{% endif %}">Radarr</a>
+                </details>
+
+                <details class="nav-group" data-nav-group="system" {% if active.startswith('system') %}open{% endif %}>
+                    <summary class="nav-item {% if active.startswith('system') %}active{% endif %}">
+                        <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></span><span class="nav-label">System</span>
+                        <span class="nav-chevron">▾</span>
+                    </summary>
+                    <a href="/system/logs"   class="nav-sub {% if active == 'system/logs' %}active{% endif %}">Logs</a>
+                    <a href="/system/backup" class="nav-sub {% if active == 'system/backup' %}active{% endif %}">Backup</a>
+                </details>
+            </nav>
+        </aside>
+
+        <div class="main">
+            <header class="topbar">
+                <div class="search">
+                    <span class="search-icon">⌕</span>
+                    <input id="poster-search" type="search" placeholder="Search by title…" autocomplete="off">
+                </div>
+                <div class="topbar-actions">
+                    <span class="topbar-pill {% if active_encoder_label %}active{% endif %}">{{ active_encoder_label or "no encoder" }}</span>
+                </div>
+            </header>
+
+            {% block toolbar %}{% endblock %}
+
+            <main class="content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    <script>
+        // Persist sidebar dropdown open/closed state across navigation.
+        // Server-rendered `open` reflects the active route; user toggles override that.
+        (function () {
+            const KEY = "convertarr.nav.groups";
+            let state = {};
+            try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+            const groups = document.querySelectorAll("details.nav-group[data-nav-group]");
+            groups.forEach(function (g) {
+                const id = g.dataset.navGroup;
+                if (Object.prototype.hasOwnProperty.call(state, id)) {
+                    g.open = !!state[id];
+                }
+                g.addEventListener("toggle", function () {
+                    state[id] = g.open;
+                    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+                });
+            });
+        })();
+
+        // Live-filter poster cards by title. No-op on pages without posters.
+        (function () {
+            const input = document.getElementById("poster-search");
+            if (!input) return;
+            input.addEventListener("input", function () {
+                const q = this.value.trim().toLowerCase();
+                document.querySelectorAll(".poster").forEach(function (el) {
+                    const title = (el.dataset.title || "").toLowerCase();
+                    el.style.display = !q || title.includes(q) ? "" : "none";
+                });
+            });
+        })();
+
+        // Mutually exclusive toolbar dropdowns: opening one closes any others.
+        // Also closes the open one when the user clicks anywhere outside it.
+        (function () {
+            const menus = document.querySelectorAll(".filter-menu");
+            menus.forEach(function (m) {
+                m.addEventListener("toggle", function () {
+                    if (!m.open) return;
+                    menus.forEach(function (other) {
+                        if (other !== m && other.open) other.open = false;
+                    });
+                });
+            });
+            document.addEventListener("click", function (e) {
+                menus.forEach(function (m) {
+                    if (m.open && !m.contains(e.target)) m.open = false;
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

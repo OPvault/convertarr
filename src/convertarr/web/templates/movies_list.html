@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% set scope = "movies" %}
+
+{% block toolbar %}
+<div class="toolbar">
+    {% include "_filter_menu.html" %}
+    {% include "_sort_menu.html" %}
+    <div class="toolbar-spacer"></div>
+    {% include "_select_toolbar.html" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Movies</h1>
+
+{% if not groups %}
+    <div class="empty">
+        <div class="empty-icon">▣</div>
+        <div>No Radarr instances configured.</div>
+        <div class="dim" style="margin-top:0.5rem"><a href="/settings">Add one in Settings</a></div>
+    </div>
+{% endif %}
+
+{% for g in groups %}
+    <h2>{{ g.instance_name }} <span class="dim" style="font-weight:400; font-size:0.85rem; margin-left:0.5rem">{{ g.shown }} of {{ g.total }}</span></h2>
+    {% if g.error %}
+        <div class="card error-card">
+            <strong>Error connecting:</strong>
+            <code>{{ g.error }}</code>
+        </div>
+    {% elif not g.entries %}
+        <div class="empty">No movies in this instance.</div>
+    {% else %}
+        <div class="poster-grid" data-scope="movies">
+        {% for m in g.entries %}
+            <a class="poster" href="/movies/{{ g.instance_id }}/{{ m.id }}" data-title="{{ m.title }}"
+               data-instance-id="{{ g.instance_id }}" data-entity-id="{{ m.id }}">
+                <div class="poster-image" {% if m.poster_proxy %}style="background-image: url('{{ m.poster_proxy }}')"{% endif %}>
+                </div>
+                <div class="poster-body">
+                    <div class="poster-title" title="{{ m.title }}">{{ m.title }}</div>
+                    <div class="poster-meta">
+                        <span>{{ m.year or "" }}</span>
+                        <span>{{ "downloaded" if m.has_file else "missing" }}</span>
+                    </div>
+                </div>
+            </a>
+        {% endfor %}
+        </div>
+    {% endif %}
+{% endfor %}
+
+{% include "_bulk_footer.html" %}
+{% endblock %}

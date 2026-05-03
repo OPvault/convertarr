@@ -1,0 +1,18 @@
+Fix filters duplication bug
+Index filters
+Fix Logs
+Remove bind adress and make it always public
+Delete originals after conversion unless it fails
+Improve Dashboard
+Change color scheme
+Clean History button
+Multi Nodes
+Rename embedded subtitles (Default OFF)
+Rename video track (Default OFF)
+Rename audio tracks (Default OFF)
+Add compression with customizable settings (Default OFF)
+Audio track stripper
+embedded subtitle stripper
+Dockerize with compose
+Statistic page
+Workflows

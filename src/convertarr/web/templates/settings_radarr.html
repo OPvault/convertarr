@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Settings — Radarr</h1>
+
+{% if not instances %}
+    <div class="empty" style="padding: 2rem">
+        No Radarr instances yet. Add one below.
+    </div>
+{% endif %}
+
+{% for i in instances %}
+    {% include "_arr_instance_card.html" %}
+{% endfor %}
+
+<h2>Add a Radarr instance</h2>
+<form method="post" action="/settings/instances" class="card">
+    <input type="hidden" name="kind" value="radarr">
+    <div class="settings-grid">
+        <div class="settings-row">
+            <label>Name</label>
+            <input type="text" name="name" placeholder="e.g. Main Radarr" required>
+        </div>
+        <div class="settings-row">
+            <label>Address</label>
+            <input type="text" name="address" placeholder="192.168.1.9" required>
+            <div class="field-help">Hostname or IPv4 Address</div>
+        </div>
+        <div class="settings-row">
+            <label>Port</label>
+            <input type="number" name="port" value="{{ default_port }}" min="1" max="65535" required>
+        </div>
+        <div class="settings-row">
+            <label>Base URL</label>
+            <input type="text" name="base_path" value="/" placeholder="/">
+        </div>
+        <div class="settings-row">
+            <label>HTTP Timeout</label>
+            <input type="number" name="http_timeout" value="60" min="1" max="600">
+            <div class="field-help">Seconds</div>
+        </div>
+        <div class="settings-row">
+            <label>API Key</label>
+            <input type="text" name="api_key" required>
+        </div>
+        <div class="settings-row">
+            <label>SSL</label>
+            <label class="toggle">
+                <input type="checkbox" name="use_ssl">
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Enabled</span>
+            </label>
+        </div>
+    </div>
+    <button type="submit" style="margin-top: 1rem">Add Radarr instance</button>
+</form>
+{% endblock %}

@@ -1,0 +1,9 @@
+{# HTMX-polled fragment: last ~500 lines of in-memory app log. Auto-scrolls. #}
+<pre class="app-log" id="app-log-pre">{% for line in lines %}{{ line }}
+{% endfor %}</pre>
+<script>
+    (function () {
+        var el = document.getElementById("app-log-pre");
+        if (el) el.scrollTop = el.scrollHeight;
+    })();
+</script>

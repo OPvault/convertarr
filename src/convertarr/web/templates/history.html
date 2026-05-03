@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>History</h1>
+{% if not rows %}
+    <div class="empty">
+        <div class="empty-icon">⌚</div>
+        No completed jobs yet.
+    </div>
+{% else %}
+<table>
+    <thead>
+        <tr>
+            <th style="width:50px">#</th>
+            <th style="width:90px">State</th>
+            <th>Title</th>
+            <th style="width:140px">Encoder</th>
+            <th>Output</th>
+            <th style="width:140px">Finished</th>
+            <th style="width:120px"></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+        <td class="dim">#{{ r.id }}</td>
+        <td><span class="badge {{ r.state }}">{{ r.state }}</span></td>
+        <td>
+            <div>{{ r.title or "—" }}</div>
+            <div class="dim" style="font-size:0.78rem; margin-top:0.2rem">{{ r.path }}</div>
+        </td>
+        <td><span class="kbd">{{ r.encoder or "-" }}</span></td>
+        <td class="dim" style="font-size:0.8rem; word-break:break-all">{{ r.output_path or "—" }}</td>
+        <td class="dim">{{ r.finished_at.strftime("%Y-%m-%d %H:%M") if r.finished_at else "—" }}</td>
+        <td>
+            {% if r.error_tail %}
+                <details><summary>error</summary><pre>{{ r.error_tail }}</pre></details>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

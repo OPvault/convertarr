@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div id="dashboard-running" hx-get="/dashboard/running" hx-trigger="load, every 2s" hx-swap="innerHTML">
+    {% include "_dashboard_running.html" %}
+</div>
+{% endblock %}

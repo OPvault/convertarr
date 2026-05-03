@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block toolbar %}
+<div class="toolbar">
+    <a class="tool-btn {% if tab == 'app' %}active{% endif %}" href="/system/logs?tab=app">
+        <span class="icon">≡</span><span>App</span>
+    </a>
+    <a class="tool-btn {% if tab == 'jobs' %}active{% endif %}" href="/system/logs?tab=jobs">
+        <span class="icon">⚙</span><span>Jobs</span>
+    </a>
+    <div class="toolbar-spacer"></div>
+    {% if tab == 'app' %}
+    <a class="tool-btn" href="/system/logs/app/download">
+        <span class="icon">⬇</span><span>Download</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>System — Logs</h1>
+
+{% if tab == 'app' %}
+<div class="card" style="padding: 0; overflow: hidden">
+    <div id="app-log-tail" hx-get="/system/logs/app/fragment" hx-trigger="load, every 2s" hx-swap="innerHTML">
+        {% include "_app_log_tail.html" %}
+    </div>
+</div>
+{% else %}
+
+{% if not jobs %}
+    <div class="empty">
+        <div class="empty-icon">⚙</div>
+        No jobs yet.
+    </div>
+{% else %}
+<table>
+    <thead>
+        <tr>
+            <th style="width: 60px">#</th>
+            <th style="width: 110px">State</th>
+            <th>Title</th>
+            <th style="width: 160px">Finished</th>
+            <th style="width: 100px"></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for j in jobs %}
+    <tr>
+        <td class="dim">#{{ j.id }}</td>
+        <td><span class="badge {{ j.state }}">{{ j.state }}</span></td>
+        <td>{{ j.title or "—" }}</td>
+        <td class="dim">{{ j.finished_at.strftime("%Y-%m-%d %H:%M") if j.finished_at else "—" }}</td>
+        <td>
+            {% if j.log_path %}
+            <button class="ghost" onclick="convertarrViewJobLog({{ j.id }})">View log</button>
+            {% else %}
+            <span class="dim">—</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<dialog id="job-log-dialog" class="filter-dialog">
+    <div class="filter-dialog-inner">
+        <header class="filter-dialog-header">
+            <h2 id="job-log-title">Job log</h2>
+            <button type="button" class="ghost icon-only" onclick="document.getElementById('job-log-dialog').close()">×</button>
+        </header>
+        <div class="filter-dialog-body" style="padding: 0">
+            <pre id="job-log-body" style="margin: 0; max-height: 65vh; border: none; border-radius: 0">Loading…</pre>
+        </div>
+    </div>
+</dialog>
+
+<script>
+async function convertarrViewJobLog(id) {
+    const dlg = document.getElementById("job-log-dialog");
+    document.getElementById("job-log-title").textContent = "Job #" + id + " — ffmpeg log";
+    document.getElementById("job-log-body").textContent = "Loading…";
+    dlg.showModal();
+    const r = await fetch("/system/logs/job/" + id);
+    document.getElementById("job-log-body").textContent = r.ok
+        ? await r.text()
+        : ("Error loading log: " + r.status);
+}
+</script>
+{% endif %}
+
+{% endif %}
+{% endblock %}

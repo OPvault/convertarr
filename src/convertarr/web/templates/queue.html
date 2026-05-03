@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set q = request.query_params %}
+{% if q.get("queued") or q.get("skipped") or q.get("failed") %}
+<div class="card" style="border-color: var(--accent); background: var(--accent-tint-soft); margin-bottom: var(--space-4)">
+    <strong>Bulk convert dispatched.</strong>
+    <span class="dim" style="margin-left: var(--space-2)">
+        queued <strong style="color: var(--accent)">{{ q.get("queued", "0") }}</strong> ·
+        skipped <strong>{{ q.get("skipped", "0") }}</strong> ·
+        failed <strong style="color: var(--red)">{{ q.get("failed", "0") }}</strong>
+    </span>
+</div>
+{% endif %}
+<div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4)">
+    <h1 style="margin: 0">Queue</h1>
+    <button type="button" class="danger"
+            hx-post="/queue/cancel-all"
+            hx-confirm="Cancel every queued and running job?"
+            hx-swap="none"
+            hx-on::after-request="
+                if (!event.detail.successful) { alert('Cancel-all failed.'); return; }
+                const r = JSON.parse(event.detail.xhr.responseText);
+                const total = (r.cancelled_queued || 0) + (r.cancelling_running || 0);
+                if (!total) {
+                    this.insertAdjacentHTML('afterend',
+                        '<span class=&quot;muted&quot; style=&quot;margin-left: var(--space-2)&quot;>Nothing to cancel.</span>');
+                    setTimeout(() => this.nextElementSibling?.remove(), 2500);
+                }">
+        Stop all
+    </button>
+</div>
+<table>
+    <thead>
+        <tr>
+            <th style="width:50px">#</th>
+            <th style="width:90px">State</th>
+            <th>Title</th>
+            <th style="width:280px">Progress</th>
+            <th style="width:90px">Time left</th>
+            <th style="width:80px">Speed</th>
+            <th style="width:80px">FPS</th>
+            <th style="width:140px">Encoder</th>
+            <th style="width:60px"></th>
+        </tr>
+    </thead>
+    <tbody hx-get="/queue/fragment" hx-trigger="load, every 2s" hx-swap="innerHTML">
+        {% include "_queue_rows.html" %}
+    </tbody>
+</table>
+{% endblock %}
