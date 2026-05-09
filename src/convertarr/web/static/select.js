@@ -74,15 +74,42 @@
         });
         const url = scope === "series" ? "/series/bulk-rescan" : "/movies/bulk-rescan";
         const btn = document.querySelector(`[data-bulk-footer="${scope}"] [data-bulk-action="convert"]`);
+        const picker = document.querySelector(`[data-bulk-footer="${scope}"] [data-bulk-workflow-picker]`);
         const originalLabel = btn.textContent;
         btn.disabled = true;
         btn.textContent = `Converting ${items.length}…`;
         try {
+            const payload = { items };
+            // Only set workflow_id when the picker is rendered (i.e. there's
+            // more than one workflow and the user actually chose). With zero
+            // workflows the Convert button is disabled, with exactly one the
+            // server walks the matcher and picks it automatically.
+            if (picker && picker.value) payload.workflow_id = parseInt(picker.value, 10);
             const r = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ items }),
+                body: JSON.stringify(payload),
             });
+            // Worker-mode 409 — paired-as-worker installs reject queueing
+            // because the local worker loop is paused while paired. Show a
+            // toast pointing at the host's UI rather than a generic alert.
+            if (r.status === 409) {
+                let body = {};
+                try { body = await r.json(); } catch (e) {}
+                const detail = body.detail || {};
+                if (detail.code === "worker_mode" && typeof convertarrToast === "function") {
+                    convertarrToast(
+                        detail.message || "Worker mode — convert from the host's UI.",
+                        {
+                            type: "warning",
+                            action: detail.host_url
+                                ? { label: "Open host →", href: detail.host_url }
+                                : undefined,
+                        },
+                    );
+                    return;
+                }
+            }
             if (!r.ok) {
                 alert(`Bulk convert failed: HTTP ${r.status}`);
                 return;

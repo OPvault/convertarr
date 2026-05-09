@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Settings — Nodes</h1>
+
+{% if self_paired_url %}
+<div class="card" style="border-color: var(--orange); background: var(--tint-orange); margin-bottom: var(--space-4)">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap">
+        <div>
+            <strong>Worker mode</strong>
+            <div class="dim" style="font-size: 0.85rem; margin-top: 0.4rem; line-height: 1.5">
+                This Convertarr instance is acting as a worker for
+                <code>{{ self_paired_url }}</code>. Manage the queue from
+                that host's Dashboard. Disconnecting clears the pairing
+                immediately and reverts this instance to host mode within a
+                few seconds — useful when the host is down or rejected your
+                api key.
+            </div>
+        </div>
+        <button type="button" class="danger"
+                onclick="convertarrDisconnectHost(this)">Disconnect from host</button>
+    </div>
+</div>
+<script>
+async function convertarrDisconnectHost(btn) {
+    if (!confirm("Disconnect this instance from " + {{ self_paired_url | tojson }} +
+                 "? The pairing will be cleared and host mode resumes within ~5s.")) return;
+    btn.disabled = true;
+    try {
+        const r = await fetch("/api/v1/pairing/disconnect", {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json" },
+            body: "{}",
+            credentials: "include",
+        });
+        if (!r.ok) {
+            const text = await r.text();
+            alert("Disconnect failed: HTTP " + r.status + "\n" + text);
+            btn.disabled = false;
+            return;
+        }
+        // Toast then reload so the supervisor's mode-switch is visible.
+        if (typeof convertarrToast === "function") {
+            convertarrToast("Disconnected. Reverting to host mode…", { type: "success" });
+        }
+        setTimeout(() => window.location.reload(), 800);
+    } catch (e) {
+        alert("Disconnect failed: " + e);
+        btn.disabled = false;
+    }
+}
+</script>
+{% endif %}
+
+{% if paired_query %}
+<div class="card" style="border-color: var(--green); background: var(--tint-green); margin-bottom: var(--space-4)">
+    <strong>Paired</strong>
+    <div class="dim" style="font-size: 0.85rem; margin-top: 0.4rem">
+        Worker <code>{{ paired_query }}</code> accepted the pairing. It should
+        appear below within a few seconds; refresh if it doesn't.
+    </div>
+</div>
+{% endif %}
+
+{% if not self_paired_url %}
+<div class="card" style="border-color: var(--accent-tint-border); background: var(--accent-tint-soft); margin-bottom: var(--space-4)">
+    <strong>Add a worker</strong>
+    <div class="dim" style="font-size: 0.85rem; margin-top: 0.4rem; line-height: 1.55">
+        Install Convertarr on the second machine and let it boot. Find its
+        API key under <em>Settings → General</em> on that machine. Then enter
+        its address and key here — this host will reach out, pair the two
+        instances, and the worker will start pulling jobs within a few seconds.
+    </div>
+    <form method="post" action="/settings/nodes/pair" style="margin-top: 0.85rem">
+        <div class="settings-grid">
+            <div class="settings-row">
+                <label>Worker address</label>
+                <input type="text" name="address" required
+                       placeholder="192.168.1.5:6565"
+                       autocomplete="off">
+                <div class="field-help">Hostname or IP, with optional <code>:port</code>. Default port is <code>6565</code>.</div>
+            </div>
+            <div class="settings-row">
+                <label>Worker API key</label>
+                <input type="password" name="worker_api_key" required
+                       autocomplete="off"
+                       placeholder="from the worker's Settings → General">
+            </div>
+            <div class="settings-row">
+                <label>Display name</label>
+                <input type="text" name="name" placeholder="Desktop">
+                <div class="field-help">Optional. What to call this worker in the Nodes list.</div>
+            </div>
+        </div>
+        <button type="submit" style="margin-top: 0.85rem">Pair</button>
+    </form>
+</div>
+{% endif %}
+
+{% for n in nodes %}
+<div class="instance-card">
+    <header class="instance-header">
+        <div>
+            <span class="badge {{ 'running' if n.online else 'queued' }}"
+                  title="{{ 'Online — last seen ' ~ n.last_heartbeat_relative if n.online else 'Offline' }}">
+                {{ '● online' if n.online else '○ offline' }}
+            </span>
+            <strong style="margin-left: 0.5rem">{{ n.name }}</strong>
+            <span class="dim" style="margin-left: 0.5rem; font-size: 0.78rem; font-family: ui-monospace, monospace">{{ n.id[:8] }}…</span>
+            {% if n.encoder_name %}
+            <span class="kbd" style="margin-left: 0.5rem">{{ n.encoder_name }}</span>
+            {% endif %}
+            {% if n.version %}
+            <span class="dim" style="margin-left: 0.5rem; font-size: 0.85rem">v{{ n.version }}</span>
+            {% endif %}
+            {% if n.address %}
+            <span class="dim" style="margin-left: 0.5rem; font-size: 0.85rem">{{ n.address }}</span>
+            {% endif %}
+        </div>
+        <div class="row-actions">
+            <span class="dim" style="font-size: 0.85rem">
+                {{ n.running_count }} running / {{ n.max_concurrent_jobs }} max
+            </span>
+            {% if n.is_paired %}
+            <button type="button" class="danger"
+                    onclick="if(confirm('Unpair this worker? It will stop accepting jobs and revert to host mode.')) document.getElementById('unpair-{{ n.id }}').submit();">
+                Unpair
+            </button>
+            {% else %}
+            <button type="button" class="danger"
+                    onclick="if(confirm('Forget this node? It will reappear on its next heartbeat.')) document.getElementById('del-node-{{ n.id }}').submit();">
+                Forget
+            </button>
+            {% endif %}
+        </div>
+    </header>
+
+    <form method="post" action="/settings/nodes/{{ n.id }}/edit" style="margin-top: 0.75rem">
+        <div class="settings-grid">
+            <div class="settings-row">
+                <label>Display name</label>
+                <input type="text" name="name" value="{{ n.name }}" required>
+            </div>
+            <div class="settings-row">
+                <label>Max concurrent jobs</label>
+                <div>{{ n.max_concurrent_jobs }} <span class="dim" style="font-size: 0.85rem">(set on the worker)</span></div>
+                <div class="field-help">
+                    This is configured on the worker itself — open
+                    <em>Settings → General</em> on that machine to change it.
+                    Updates propagate here on the next heartbeat.
+                </div>
+            </div>
+            <div class="settings-row">
+                <label>Encoder</label>
+                <select name="encoder_choice">
+                    <option value="auto" {% if n.encoder_choice == "auto" %}selected{% endif %}>
+                        Auto — pick best available
+                    </option>
+                    {% for e in known_encoders %}
+                    <option value="{{ e.name }}" {% if n.encoder_choice == e.name %}selected{% endif %}>
+                        {{ e.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="field-help">
+                    Worker auto-detected <strong>{{ n.encoder_name or "—" }}</strong>
+                    ({{ n.encoder_family or "?" }}). Override here to pin a specific encoder.
+                    Takes effect on the worker's next heartbeat.
+                </div>
+            </div>
+        </div>
+        <button type="submit" style="margin-top: 0.75rem">Save</button>
+    </form>
+
+    <h3 class="section-label" style="margin-top: 1.25rem">Path translation</h3>
+    <div class="dim" style="font-size: 0.85rem; line-height: 1.5">
+        Path translation for this worker comes from the
+        <a href="/settings/sonarr">Sonarr</a> /
+        <a href="/settings/radarr">Radarr</a> Path Mappings configured on
+        the worker's own machine. Set them up there the same way you would
+        for any standalone Convertarr install — on dispatch the worker
+        receives the *arr-relative path and applies its own mappings.
+    </div>
+</div>
+
+{# Sibling forms for destructive buttons. #}
+{% if n.is_paired %}
+<form id="unpair-{{ n.id }}" method="post" action="/settings/nodes/{{ n.id }}/unpair" style="display:none"></form>
+{% else %}
+<form id="del-node-{{ n.id }}" method="post" action="/settings/nodes/{{ n.id }}/delete" style="display:none"></form>
+{% endif %}
+
+{% endfor %}
+{% endblock %}

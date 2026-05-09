@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="wf-list-header">
+    <h1 style="margin: 0">Workflows</h1>
+    <div class="wf-list-actions">
+        {# "+ New workflow" is now a tiny menu with two paths into the same
+           outcome: a fresh blank editor or an import-and-save flow. Putting
+           Import here keeps the top of the page focused on the single
+           primary action. #}
+        <details class="wf-new-menu">
+            <summary class="primary-button">+ New workflow <span class="wf-new-caret">▾</span></summary>
+            <div class="wf-new-menu-panel">
+                <a class="wf-new-menu-item" href="/settings/workflows/edit/new">
+                    <span class="wf-new-menu-icon">＋</span>
+                    <span>
+                        <strong>Start blank</strong>
+                        <span class="dim">Build a new workflow from scratch.</span>
+                    </span>
+                </a>
+                <button type="button" class="wf-new-menu-item"
+                        onclick="this.closest('details').open = false; convertarrOpenImport()">
+                    <span class="wf-new-menu-icon">↑</span>
+                    <span>
+                        <strong>Import from JSON</strong>
+                        <span class="dim">Paste or upload a single workflow.</span>
+                    </span>
+                </button>
+            </div>
+        </details>
+    </div>
+</div>
+
+{# Hidden file input that the import-modal "Upload from file" button drives.
+   Selecting a file copies its text content into the import textarea. #}
+<input id="wf-upload-input" type="file" accept="application/json,.json" hidden>
+
+<dialog id="wf-export-dialog" class="filter-dialog">
+    <div class="filter-dialog-inner">
+        <header class="filter-dialog-header">
+            <h2 id="wf-export-title">Export workflow</h2>
+            <button type="button" class="ghost icon-only" aria-label="Close"
+                    onclick="document.getElementById('wf-export-dialog').close()">×</button>
+        </header>
+        <div class="filter-dialog-body">
+            <div class="dim" style="font-size: 0.85rem; margin-bottom: 0.5rem">
+                Copy this JSON to share the workflow, or click <strong>Download as file</strong>
+                to save it. Importing it elsewhere adds it as a new workflow.
+            </div>
+            <textarea id="wf-export-textarea" class="wf-json-textarea" readonly
+                      spellcheck="false">Loading…</textarea>
+            <div class="wf-json-actions">
+                <button type="button" class="ghost" onclick="convertarrCopyExport(this)">Copy</button>
+                <button type="button" class="ghost" onclick="convertarrDownloadExport()">Download as file</button>
+            </div>
+        </div>
+        <footer class="filter-dialog-footer">
+            <button type="button" class="ghost"
+                    onclick="document.getElementById('wf-export-dialog').close()">Close</button>
+        </footer>
+    </div>
+</dialog>
+
+<dialog id="wf-import-dialog" class="filter-dialog">
+    <div class="filter-dialog-inner">
+        <header class="filter-dialog-header">
+            <h2>Import workflow</h2>
+            <button type="button" class="ghost icon-only" aria-label="Close"
+                    onclick="document.getElementById('wf-import-dialog').close()">×</button>
+        </header>
+        <div class="filter-dialog-body">
+            <div class="dim" style="font-size: 0.85rem; margin-bottom: 0.5rem">
+                Paste a single workflow's JSON, or load it from a file. The
+                workflow is <strong>added</strong> to your list — nothing is replaced.
+                Import multiple workflows by repeating this for each one.
+            </div>
+            <textarea id="wf-import-textarea" class="wf-json-textarea"
+                      spellcheck="false"
+                      placeholder='{"name": "...", "priority": 100, "conditions": [...], ...}'></textarea>
+            <div class="wf-json-actions">
+                <button type="button" class="ghost"
+                        onclick="document.getElementById('wf-upload-input').click()">Upload from file</button>
+            </div>
+        </div>
+        <footer class="filter-dialog-footer">
+            <button type="button" class="ghost"
+                    onclick="document.getElementById('wf-import-dialog').close()">Cancel</button>
+            <button type="button" onclick="convertarrSubmitImport(this)">Import</button>
+        </footer>
+    </div>
+</dialog>
+
+<script>
+// ---- Export modal (per-workflow) ---------------------------------------
+// The currently-displayed workflow id, so the Download button knows what
+// endpoint to hit. Set by convertarrOpenExport, cleared on dialog close.
+let _wfExportId = null;
+
+async function convertarrOpenExport(workflowId, workflowName) {
+    _wfExportId = workflowId;
+    const dlg = document.getElementById("wf-export-dialog");
+    const ta = document.getElementById("wf-export-textarea");
+    document.getElementById("wf-export-title").textContent =
+        workflowName ? ("Export — " + workflowName) : "Export workflow";
+    ta.value = "Loading…";
+    dlg.showModal();
+    try {
+        const r = await fetch(`/settings/workflows/${workflowId}/export`);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        ta.value = await r.text();
+        ta.scrollTop = 0;
+    } catch (e) {
+        ta.value = "Failed to load export: " + e.message;
+    }
+}
+
+async function convertarrCopyExport(btn) {
+    const ta = document.getElementById("wf-export-textarea");
+    try {
+        await navigator.clipboard.writeText(ta.value);
+        const old = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = old; }, 1500);
+    } catch (e) {
+        // Fallback when clipboard API isn't available (insecure context, etc.):
+        // just select the text so the user can copy manually.
+        ta.select();
+        convertarrToast("Press Ctrl/Cmd-C to copy.", { type: "info" });
+    }
+}
+
+function convertarrDownloadExport() {
+    if (_wfExportId == null) return;
+    // Same endpoint the modal fetches — the server sets Content-Disposition
+    // so the browser saves it as `convertarr-<slug>.json`.
+    window.location.href = `/settings/workflows/${_wfExportId}/export`;
+}
+
+// ---- Import modal ------------------------------------------------------
+function convertarrOpenImport() {
+    const dlg = document.getElementById("wf-import-dialog");
+    document.getElementById("wf-import-textarea").value = "";
+    dlg.showModal();
+}
+
+// Wire the "Upload from file" button: load the picked file's text into the
+// textarea so the user sees what they're about to import (and can edit it).
+document.getElementById("wf-upload-input").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+        const text = await file.text();
+        document.getElementById("wf-import-textarea").value = text;
+    } catch (err) {
+        convertarrToast("Couldn't read file: " + err.message, { type: "error" });
+    } finally {
+        // Reset so picking the same file twice still fires onchange.
+        e.target.value = "";
+    }
+});
+
+async function convertarrSubmitImport(btn) {
+    const ta = document.getElementById("wf-import-textarea");
+    const text = ta.value.trim();
+    if (!text) {
+        convertarrToast("Paste some JSON first.", { type: "warning" });
+        return;
+    }
+    // Sanity-check JSON client-side so we can give a clean error instead of
+    // bouncing off the server with a 400.
+    try { JSON.parse(text); }
+    catch (err) {
+        convertarrToast("Invalid JSON: " + err.message, { type: "error" });
+        return;
+    }
+    // Reuse the existing multipart import endpoint by wrapping the textarea
+    // contents in a Blob — saves a separate JSON-body endpoint.
+    const fd = new FormData();
+    fd.append("file", new Blob([text], { type: "application/json" }), "pasted.json");
+    btn.disabled = true;
+    try {
+        const r = await fetch("/settings/workflows/import", { method: "POST", body: fd, redirect: "manual" });
+        // The endpoint returns a 303 redirect (?imported=N) on success. With
+        // redirect:"manual" we get an opaqueredirect response we can't read,
+        // so fall back to navigating directly to the redirect target.
+        if (r.type === "opaqueredirect" || r.ok || r.status === 303) {
+            window.location.href = "/settings/workflows?imported=just-now";
+            return;
+        }
+        const text = await r.text();
+        convertarrToast("Import failed: " + r.status + " " + text, { type: "error" });
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
+
+{% if request.query_params.get("imported") %}
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+    const param = {{ request.query_params.get("imported") | tojson }};
+    // Old code passed a count. The new modal flow can't read the redirect
+    // body so it just passes "just-now" as a sentinel — both render fine.
+    const n = parseInt(param, 10);
+    convertarrToast(
+        Number.isNaN(n)
+            ? "Workflows imported."
+            : (n ? `Imported ${n} workflow${n === 1 ? "" : "s"}.`
+                 : "No workflows found in the uploaded file."),
+        { type: (Number.isNaN(n) || n) ? "success" : "warning" }
+    );
+});
+</script>
+{% endif %}
+
+<div class="card" style="border-color: var(--accent-tint-border); background: var(--accent-tint-soft); margin-bottom: var(--space-4)">
+    <strong>How workflows work</strong>
+    <div class="dim" style="font-size: 0.85rem; margin-top: 0.4rem; line-height: 1.5">
+        Each workflow is a chain of blocks: a trigger, conditions (ANDed), and target codecs.
+        Files are matched in priority order — the lowest priority number wins. When a workflow
+        matches, its target codecs replace the global codec policy for that file. Picking
+        <code>copy</code> for a target means "match this file but leave that track alone".
+    </div>
+</div>
+
+{% if not workflows %}
+<div class="empty">
+    <div class="empty-icon">▤</div>
+    <div>No workflows yet.</div>
+    <div class="dim" style="margin-top: 0.5rem">
+        <a href="/settings/workflows/edit/new">Build your first workflow</a> to override the global codec policy on matching files.
+    </div>
+</div>
+{% else %}
+<div class="wf-grid">
+{% for w in workflows %}
+<div class="wf-card {% if not w.enabled %}wf-card-disabled{% endif %}">
+    <div class="wf-card-header">
+        <div class="wf-card-title">
+            <span class="wf-priority">P{{ w.priority }}</span>
+            <strong>{{ w.name }}</strong>
+        </div>
+        <div class="wf-card-actions">
+            <label class="toggle" title="Enable / disable">
+                <input type="checkbox" {% if w.enabled %}checked{% endif %}
+                       onchange="convertarrToggleWorkflow({{ w.id }})">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+    <div class="wf-card-graph">
+        <div class="wf-mini-block wf-mini-trigger">▶ When file processed</div>
+        <div class="wf-mini-connector"></div>
+        {% if w.conditions %}
+            {% for c in w.conditions %}
+            {% if not loop.first %}
+            <div class="wf-mini-connector wf-mini-connector-{{ c.connector or 'and' }}">
+                {% if (c.connector or 'and') == 'or' %}<span class="wf-mini-conn-label">OR</span>{% endif %}
+            </div>
+            {% endif %}
+            <div class="wf-mini-block wf-mini-condition">
+                {% if loop.first %}<span class="wf-mini-badge wf-mini-badge-if">IF</span>
+                {% else %}<span class="wf-mini-badge wf-mini-badge-{{ c.connector or 'and' }}">{{ (c.connector or 'and') | upper }}</span>{% endif %}
+                <span class="dim">{{ c.field }}</span>
+                <span class="wf-mini-op">{{ c.op }}</span>
+                {# Values are always a list now. Render each as its own chip
+                   so multi-select rules read naturally ("av1, vp9"). #}
+                {% set values = c.value if c.value is iterable and c.value is not string else ([c.value] if c.value else []) %}
+                {% if values %}
+                    {% for v in values %}<span class="wf-mini-value">{{ v }}</span>{% if not loop.last %}<span class="dim" style="font-size:0.7rem">or</span>{% endif %}{% endfor %}
+                {% else %}
+                    <span class="wf-mini-value">—</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="wf-mini-connector"></div>
+        {% else %}
+            <div class="wf-mini-block wf-mini-condition wf-mini-empty">
+                <em>matches every file</em>
+            </div>
+            <div class="wf-mini-connector"></div>
+        {% endif %}
+        <div class="wf-mini-block wf-mini-action-video">
+            <span class="wf-mini-icon">▶</span>
+            video → <span class="wf-mini-value">{{ w.target_video_codec }}</span>
+        </div>
+        <div class="wf-mini-connector"></div>
+        <div class="wf-mini-block wf-mini-action-audio">
+            <span class="wf-mini-icon">♪</span>
+            audio → <span class="wf-mini-value">{{ w.target_audio_codec }}</span>
+        </div>
+    </div>
+    <div class="wf-card-footer">
+        <a class="ghost button-link" href="/settings/workflows/edit/{{ w.id }}">Edit</a>
+        {# Single-quoted onclick — `tojson` emits literal `"` chars (it's
+           designed for use inside <script> tags), and double-quoted attrs
+           collide with them, truncating the JS at the first inner ". #}
+        <button type="button" class="ghost"
+                onclick='convertarrOpenExport({{ w.id }}, {{ w.name | tojson }})'>Export</button>
+        <button type="button" class="danger"
+                onclick='convertarrDeleteWorkflow({{ w.id }}, {{ w.name | tojson }})'>Delete</button>
+    </div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

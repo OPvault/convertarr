@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>System — About</h1>
+
+<h2>About</h2>
+<div class="card">
+    <dl class="about-list">
+        <div class="about-row">
+            <dt>Version</dt>
+            <dd>{{ convertarr_version }}</dd>
+        </div>
+        <div class="about-row">
+            <dt>Python</dt>
+            <dd>{{ python_version }}</dd>
+        </div>
+        <div class="about-row">
+            <dt>Database</dt>
+            <dd>SQLite {{ sqlite_version }}</dd>
+        </div>
+        <div class="about-row">
+            <dt>AppData Directory</dt>
+            <dd><code>{{ appdata_dir }}</code></dd>
+        </div>
+        <div class="about-row">
+            <dt>Database File</dt>
+            <dd><code>{{ database_file }}</code></dd>
+        </div>
+        <div class="about-row">
+            <dt>Startup Directory</dt>
+            <dd><code>{{ startup_dir }}</code></dd>
+        </div>
+        <div class="about-row">
+            <dt>Mode</dt>
+            <dd>{{ mode }}</dd>
+        </div>
+        <div class="about-row">
+            <dt>Uptime</dt>
+            <dd title="Started {{ started_at.strftime('%A, %b %-d %Y %H:%M:%S UTC') }}">{{ uptime_str }}</dd>
+        </div>
+    </dl>
+</div>
+
+<h2>More Info</h2>
+<div class="card">
+    <dl class="about-list">
+        <div class="about-row">
+            <dt>Source</dt>
+            <dd><a href="https://github.com/OPvault/convertarr" target="_blank" rel="noreferrer">github.com/OPvault/convertarr</a></dd>
+        </div>
+        <div class="about-row">
+            <dt>Issues</dt>
+            <dd><a href="https://github.com/OPvault/convertarr/issues" target="_blank" rel="noreferrer">github.com/OPvault/convertarr/issues</a></dd>
+        </div>
+    </dl>
+</div>
+
+<style>
+    .about-list { margin: 0; padding: 0; }
+    .about-row {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: var(--space-3);
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border-soft, rgba(255,255,255,0.05));
+    }
+    .about-row:last-child { border-bottom: none; }
+    .about-row dt {
+        color: var(--dim, rgba(255,255,255,0.6));
+        font-weight: 500;
+    }
+    .about-row dd { margin: 0; }
+    .about-row code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.85rem;
+    }
+    @media (max-width: 600px) {
+        .about-row {
+            grid-template-columns: 1fr;
+            gap: 0.25rem;
+        }
+    }
+</style>
+{% endblock %}

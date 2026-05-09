@@ -1,6 +1,6 @@
 [project]
 name = "convertarr"
-version = "0.1.0"
+version = "1.0.0"
 description = "Sonarr-style daemon that pre-converts Jellyfin-incompatible media into a direct-play codec set."
 requires-python = ">=3.12"
 dependencies = [

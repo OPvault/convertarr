@@ -19,14 +19,23 @@
     <td>{% if r.speed %}{{ "%.2f"|format(r.speed) }}x{% else %}<span class="dim">—</span>{% endif %}</td>
     <td>{% if r.fps %}{{ "%.0f"|format(r.fps) }}{% else %}<span class="dim">—</span>{% endif %}</td>
     <td><span class="kbd">{{ r.encoder or "-" }}</span></td>
-    <td style="text-align: right">
+    <td style="text-align: right; white-space: nowrap">
         {% if r.state in ("queued", "running") %}
         <button class="ghost icon-only"
                 title="Cancel"
                 hx-post="/queue/{{ r.id }}/cancel"
                 hx-swap="none">×</button>
         {% elif r.state == "cancelling" %}
-        <span class="dim" style="font-size: 0.78rem">stopping…</span>
+        <span class="dim" style="font-size: 0.78rem; margin-right: 0.5rem">stopping…</span>
+        {# Force-delete escape hatch — when the worker that owned this job
+           is gone (or hung), the row would sit in `cancelling` forever.
+           This button hard-marks it as cancelled so the queue moves on. #}
+        <button class="danger icon-only"
+                title="Force delete — drops the row from the DB (use when the worker is gone)"
+                style="padding: 0.25rem 0.5rem; font-size: 0.85rem"
+                onclick="if(confirm('Force-delete job #{{ r.id }}? The row will be REMOVED from the database — it won\'t appear in History. Use this only when the worker is gone or unresponsive.')) htmx.ajax('POST', '/queue/{{ r.id }}/force-delete', {swap:'none'})">
+            ⌫
+        </button>
         {% endif %}
     </td>
 </tr>

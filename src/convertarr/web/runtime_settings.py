@@ -65,13 +65,15 @@ def all() -> dict[str, Any]:
 # ---- Default-seeding ----
 
 DEFAULT_KEYS: dict[str, Any] = {
-    "bind_address": "0.0.0.0:8000",
     "api_key": None,            # populated to a random hex on first seed
     "auth_method": "none",      # "none" | "basic" | "forms" — Sonarr-style default
     "auth_username": "admin",
     "auth_password_hash": "",   # empty triggers /setup once auth_method != "none"
-    "delete_originals": False,
-    "max_concurrent_jobs": 1,
+    # Default ON: the worker only invokes the swap-and-delete path after a
+    # successful encode (`elif success:` in queue._run_one_job), so failed
+    # or cancelled jobs always leave the original untouched. Cancelled jobs
+    # additionally clean up their partial output before exiting.
+    "delete_originals": True,
 }
 
 

@@ -101,3 +101,50 @@ def list_known() -> list[EncoderProfile]:
 def list_available() -> list[EncoderProfile]:
     """Encoders detected as usable on this host (legacy callers)."""
     return [p for p in ALL_HEVC if is_detected(p)]
+
+
+# ---- Per-target-codec encoder picker (used by workflows) ----
+#
+# When a workflow targets a non-HEVC codec ("convert AV1 -> H.264"), the
+# globally-detected HEVC encoder isn't appropriate — we need to pick the
+# matching encoder in the same hardware family. The map below covers the
+# combinations Convertarr actually supports; misses fall back to a CPU
+# encoder so the encode never fails just because we couldn't find a hwencoder.
+
+_CODEC_ENCODER_MAP: dict[tuple[str, str], EncoderProfile] = {
+    # (target_codec, family) -> encoder
+    ("hevc", "nvenc"): NVENC_HEVC,
+    ("hevc", "vaapi"): VAAPI_HEVC,
+    ("hevc", "qsv"):   QSV_HEVC,
+    ("hevc", "amf"):   AMF_HEVC,
+    ("hevc", "cpu"):   CPU_HEVC,
+
+    ("h264", "nvenc"): EncoderProfile("h264_nvenc", "nvenc", "NVIDIA NVENC (h264_nvenc)"),
+    ("h264", "vaapi"): EncoderProfile("h264_vaapi", "vaapi", "AMD/Intel VAAPI (h264_vaapi)"),
+    ("h264", "qsv"):   EncoderProfile("h264_qsv",   "qsv",   "Intel QSV (h264_qsv)"),
+    ("h264", "amf"):   EncoderProfile("h264_amf",   "amf",   "AMD AMF (h264_amf)"),
+    ("h264", "cpu"):   EncoderProfile("libx264",    "cpu",   "CPU (libx264)"),
+
+    # AV1 encoders are newer; libsvtav1 is the practical CPU choice.
+    ("av1",  "nvenc"): EncoderProfile("av1_nvenc",  "nvenc", "NVIDIA NVENC (av1_nvenc)"),
+    ("av1",  "vaapi"): EncoderProfile("av1_vaapi",  "vaapi", "AMD/Intel VAAPI (av1_vaapi)"),
+    ("av1",  "qsv"):   EncoderProfile("av1_qsv",    "qsv",   "Intel QSV (av1_qsv)"),
+    ("av1",  "cpu"):   EncoderProfile("libsvtav1",  "cpu",   "CPU (libsvtav1)"),
+}
+
+
+def encoder_for_codec(target_codec: str, *, base: EncoderProfile | None = None) -> EncoderProfile:
+    """Pick the right encoder for a workflow's target codec, preserving the
+    user's hardware-family choice. Falls back to the CPU encoder when there's
+    no hwencoder in this family for that codec (e.g. AMF + AV1)."""
+    base = base or detect_best()
+    family = base.family if base.family in {"nvenc", "vaapi", "qsv", "amf", "cpu"} else "cpu"
+    target = (target_codec or "hevc").lower()
+    # Direct lookup; if the (target, family) pair isn't in the map (e.g. AMF
+    # AV1, or anything paired with "override"/"manual"), fall back to CPU so
+    # the encode still proceeds.
+    enc = _CODEC_ENCODER_MAP.get((target, family))
+    if enc is not None:
+        return enc
+    cpu_fallback = _CODEC_ENCODER_MAP.get((target, "cpu"))
+    return cpu_fallback or base

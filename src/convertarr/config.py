@@ -22,8 +22,6 @@ class AudioTarget(BaseModel):
 
 
 class Policy(BaseModel):
-    video_allowlist: list[str] = ["h264", "hevc"]
-    audio_allowlist: list[str] = ["aac", "ac3", "eac3", "mp3", "flac"]
     video_target: VideoTarget = VideoTarget()
     audio_target: AudioTarget = AudioTarget()
     container: str = "mkv"

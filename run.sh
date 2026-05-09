@@ -13,9 +13,8 @@
 #   ./run.sh --no-reload      # production-ish, no watcher
 #   FORCE_INSTALL=1 ./run.sh  # force reinstall even if stamp is fresh
 #
-# Bind address and other runtime config live in the DB and are editable from
-# Settings → General. The first run binds to whatever's there (default
-# 0.0.0.0:8000); change it in the UI and restart this script.
+# Convertarr always binds 0.0.0.0:6565. Other runtime config (auth, codec
+# policy, etc.) lives in the DB and is editable from Settings → General.
 
 set -euo pipefail
 

@@ -1,52 +1,100 @@
-/* ===== Convertarr — *arr-flavoured UI ===== */
+/* ===== Convertarr — *arr-flavoured UI =====
+ *
+ * Theming: every color, spacing, and radius is a CSS variable on `:root`
+ * below. To retheme, override the tokens — every component reads them, so
+ * nothing else needs to change. The "Brand color" + "Surfaces" sections are
+ * the most impactful; status colors stay the same across themes.
+ *
+ * Conventions:
+ *   --bg-*       page / sidebar / topbar / card surfaces (low → high)
+ *   --border-*   `--border` is strong, `--border-soft` is interior dividers
+ *   --text-*     `--text` (primary), `--text-muted` (secondary),
+ *                `--text-dim` (tertiary), `--text-on-accent` (over accent)
+ *   --accent     primary brand color used for active state, links, CTAs
+ *   --green / --orange / --red / --blue   status colors
+ *   --*-rgb      space-separated RGB triplet of the same color, used to
+ *                build translucent tints via `rgb(var(--x-rgb) / 0.15)`
+ */
 
 :root {
-    /* ----- Color tokens ----- */
-    --bg: #2a2d34;
-    --bg-content: #2a2d34;
-    --bg-sidebar: #1f2227;
-    --bg-topbar: #25282e;
-    --bg-card: #353a42;
-    --bg-card-hover: #3d434c;
-    --bg-input: #1a1c20;
-    --bg-button-secondary: #4a4f58;
-    --bg-button-secondary-hover: #555a64;
+    /* --------------------------------------------------------------------
+     * Brand color (Sonarr-flavoured cyan). Override `--accent` + `--accent-rgb`
+     * together to retheme every primary surface in the app.
+     * ------------------------------------------------------------------- */
+    --accent:        #2dc7f5;
+    --accent-hover:  #4ad3f8;
+    --accent-rgb:    45 199 245;
 
-    --border: #1a1c20;
-    --border-soft: #3a3e46;
+    /* --------------------------------------------------------------------
+     * Surfaces — low → high. Sidebar is darkest; content sits one step up;
+     * cards float above content; hover/input each have their own tone.
+     * Slightly cooler / more navy than the previous greys to read as
+     * "Sonarr-like" without copying their exact palette outright.
+     * ------------------------------------------------------------------- */
+    --bg:                         #1d2129;
+    --bg-content:                 #1d2129;
+    --bg-sidebar:                 #14171d;
+    --bg-topbar:                  #1a1d24;
+    --bg-card:                    #2a303b;
+    --bg-card-hover:              #343b48;
+    --bg-input:                   #11141a;
+    --bg-button-secondary:        #3e4655;
+    --bg-button-secondary-hover:  #4a5263;
 
-    --text: #e6e6e6;
-    --text-muted: #9aa0a8;
-    --text-dim: #6c727d;
-    --text-on-accent: #1a1c20;
+    /* --------------------------------------------------------------------
+     * Borders. The strong border separates major regions (sidebar/topbar),
+     * the soft one divides rows inside cards.
+     * ------------------------------------------------------------------- */
+    --border:       #0d0f14;
+    --border-soft:  #3a4150;
 
-    --accent: #35c5f0;
-    --accent-hover: #4dd1f5;
-    --accent-rgb: 53 197 240;
+    /* --------------------------------------------------------------------
+     * Text contrast — bumped from the previous palette so secondary and
+     * tertiary text stay legible on the cooler background.
+     *   --text         primary, near-white
+     *   --text-muted   secondary metadata (hints, labels, captions)
+     *   --text-dim     tertiary placeholders / very-low-emphasis copy
+     *   --text-on-accent  used over `--accent` fills (buttons, badges)
+     * ------------------------------------------------------------------- */
+    --text:           #f2f4f7;
+    --text-muted:     #aab3c0;
+    --text-dim:       #7a8493;
+    --text-on-accent: #0a1018;
 
-    --green: #5cb85c;
-    --green-rgb: 92 184 92;
-    --orange: #f0ad4e;
-    --orange-rgb: 240 173 78;
-    --red: #d9534f;
-    --red-rgb: 217 83 79;
-    --red-hover: #c9302c;
-    --blue: #5bc0de;
+    /* --------------------------------------------------------------------
+     * Status colors. Each ships with an `*-rgb` triplet so callers can paint
+     * tinted surfaces via `rgb(var(--green-rgb) / 0.15)`.
+     * ------------------------------------------------------------------- */
+    --green:      #4ec06b;   --green-rgb:  78 192 107;
+    --orange:     #f5a83d;   --orange-rgb: 245 168 61;
+    --red:        #ec5454;   --red-rgb:    236 84 84;
+    --red-hover:  #f06969;
+    --blue:       #5db9e3;   --blue-rgb:   93 185 227;
 
-    /* ----- Surface overlays (replace ad-hoc rgba(255,255,255,0.x)) ----- */
-    --surface-hover: rgb(255 255 255 / 0.04);
-    --surface-active: rgb(255 255 255 / 0.08);
+    /* --------------------------------------------------------------------
+     * Surface overlays — translucent neutrals for hover/active states. Use
+     * these instead of ad-hoc rgba(255,255,255,...) so lightening behaves
+     * the same across components.
+     * ------------------------------------------------------------------- */
+    --surface-hover:   rgb(255 255 255 / 0.05);
+    --surface-active:  rgb(255 255 255 / 0.10);
 
-    /* ----- Accent / status tints ----- */
-    --accent-tint-soft:    rgb(var(--accent-rgb) / 0.08);
-    --accent-tint:         rgb(var(--accent-rgb) / 0.12);
-    --accent-tint-strong:  rgb(var(--accent-rgb) / 0.20);
-    --accent-tint-border:  rgb(var(--accent-rgb) / 0.30);
-    --tint-green:          rgb(var(--green-rgb)  / 0.15);
-    --tint-orange:         rgb(var(--orange-rgb) / 0.15);
-    --tint-red:            rgb(var(--red-rgb)    / 0.15);
-    --tint-red-border:     rgb(var(--red-rgb)    / 0.30);
-    --tint-muted:          rgb(154 160 168 / 0.15);
+    /* --------------------------------------------------------------------
+     * Tints derived from the accent + status colors. Every translucent fill
+     * routes through these so a brand-color override (above) automatically
+     * propagates to every chip, badge, hover state, and selected row.
+     * ------------------------------------------------------------------- */
+    --accent-tint-soft:    rgb(var(--accent-rgb) / 0.10);
+    --accent-tint:         rgb(var(--accent-rgb) / 0.16);
+    --accent-tint-strong:  rgb(var(--accent-rgb) / 0.24);
+    --accent-tint-border:  rgb(var(--accent-rgb) / 0.40);
+    --tint-green:          rgb(var(--green-rgb)  / 0.18);
+    --tint-orange:         rgb(var(--orange-rgb) / 0.18);
+    --tint-red:            rgb(var(--red-rgb)    / 0.18);
+    --tint-red-border:     rgb(var(--red-rgb)    / 0.35);
+    --tint-blue:           rgb(var(--blue-rgb)   / 0.18);
+    --tint-blue-border:    rgb(var(--blue-rgb)   / 0.45);
+    --tint-muted:          rgb(170 179 192 / 0.16);
 
     /* ----- Spacing ----- */
     --space-1: 0.25rem;
@@ -59,15 +107,16 @@
 
     /* ----- Radius ----- */
     --radius-sm: 3px;   /* inputs, tags, badges, pre, kbd */
-    --radius-md: 4px;   /* cards, buttons, panels, posters */
-    --radius-lg: 6px;   /* dialogs, auth card, logo */
+    --radius-md: 5px;   /* cards, buttons, panels, posters */
+    --radius-lg: 8px;   /* dialogs, auth card, logo */
 
-    /* ----- Elevation ----- */
-    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.4);
-    --shadow-md: 0 4px 16px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.5);
-    --shadow-text: 0 0 2px rgb(0 0 0 / 0.6);
-    --scrim: rgb(0 0 0 / 0.6);
+    /* ----- Elevation. Slightly heavier shadows so cards lift cleanly off
+     *       the cooler background, which can otherwise eat soft shadows. */
+    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.45);
+    --shadow-md: 0 6px 20px rgb(0 0 0 / 0.50);
+    --shadow-lg: 0 12px 40px rgb(0 0 0 / 0.55);
+    --shadow-text: 0 0 2px rgb(0 0 0 / 0.7);
+    --scrim: rgb(0 0 0 / 0.65);
 
     /* ----- Layout ----- */
     --sidebar-w: 200px;
@@ -341,7 +390,10 @@ tr:last-child td { border-bottom: none; }
 tr:hover td { background: var(--bg-card-hover); }
 
 /* ===== Buttons ===== */
-button, .btn {
+/* Anchors with `.button-link` get the same visual treatment as <button>
+   so an "Edit" link sits flush next to a "Delete" button without the
+   alignment drift you'd get from a bare <a>. */
+button, .btn, a.button-link {
     background: var(--accent);
     color: var(--text-on-accent);
     border: none;
@@ -351,26 +403,28 @@ button, .btn {
     font-size: 0.85rem;
     font-weight: 600;
     font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    line-height: 1.2;
 }
-button:hover, .btn:hover { background: var(--accent-hover); }
-button.secondary { background: var(--bg-button-secondary); color: var(--text); }
-button.secondary:hover { background: var(--bg-button-secondary-hover); }
-button.danger { background: var(--red); color: var(--text); }
-button.danger:hover { background: var(--red-hover); }
-button.ghost {
+button:hover, .btn:hover, a.button-link:hover { background: var(--accent-hover); }
+button.secondary, a.button-link.secondary { background: var(--bg-button-secondary); color: var(--text); }
+button.secondary:hover, a.button-link.secondary:hover { background: var(--bg-button-secondary-hover); }
+button.danger, a.button-link.danger { background: var(--red); color: var(--text); }
+button.danger:hover, a.button-link.danger:hover { background: var(--red-hover); }
+button.ghost, a.button-link.ghost {
     background: transparent;
     color: var(--text-muted);
     border: 1px solid var(--border-soft);
 }
-button.ghost:hover { background: var(--bg-card-hover); color: var(--text); }
+button.ghost:hover, a.button-link.ghost:hover { background: var(--bg-card-hover); color: var(--text); }
 button.ghost.icon-only {
     width: 28px; height: 28px;
     padding: 0;
     line-height: 1;
     font-size: 1.1rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 }
 button.ghost.icon-only:hover { color: var(--red); border-color: var(--red); }
 
@@ -1007,3 +1061,1780 @@ pre {
 .bulk-footer-info { color: var(--text-muted); font-size: 0.9rem; }
 .bulk-footer-info .bulk-count { color: var(--text); font-weight: 700; font-size: 1rem; }
 .bulk-footer-actions { display: flex; gap: var(--space-2); }
+
+/* ===== Statistics page ===== */
+.stats-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.stats-kpi {
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+.stats-kpi-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+}
+.stats-kpi.small .stats-kpi-value { font-size: 1.2rem; }
+.stats-kpi-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--space-5);
+    margin-top: var(--space-3);
+}
+.stats-grid h3 {
+    margin: 0 0 var(--space-2);
+    font-size: 1rem;
+}
+.stats-bar-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 50px;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.35rem 0;
+}
+.stats-bar-row + .stats-bar-row {
+    border-top: 1px solid var(--border);
+}
+.stats-bar-label {
+    font-size: 0.85rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.stats-bar {
+    height: 8px;
+    background: var(--accent-tint-soft);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.stats-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+.stats-bar-count {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* ===== Workflows: list page (preview cards) ===== */
+.wf-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.wf-list-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* "New workflow" split-menu — anchor + button look the same so the menu
+   reads as one action with two paths (blank / import). */
+.wf-new-menu {
+    position: relative;
+}
+.wf-new-menu summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    /* Inherits .primary-button styling via the class on <summary>. */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.wf-new-menu summary::-webkit-details-marker { display: none; }
+.wf-new-caret {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    line-height: 1;
+}
+.wf-new-menu[open] .wf-new-caret { transform: rotate(180deg); }
+
+.wf-new-menu-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 50;
+    min-width: 280px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    padding: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+.wf-new-menu-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.6rem 0.7rem;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    text-align: left;
+    width: 100%;
+}
+.wf-new-menu-item:hover { background: var(--surface-hover); }
+.wf-new-menu-item .dim {
+    display: block;
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+    font-weight: 400;
+}
+.wf-new-menu-item strong { font-weight: 600; }
+.wf-new-menu-icon {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: var(--radius-sm);
+    background: var(--accent-tint);
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-weight: 700;
+}
+
+.wf-json-textarea {
+    width: 100%;
+    min-height: 320px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 0.85rem;
+    resize: vertical;
+    /* Tab-stop lengths long enough to read pretty-printed JSON without
+       losing the indentation when the user scrolls horizontally. */
+    tab-size: 2;
+}
+.wf-json-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-tint);
+}
+.wf-json-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    flex-wrap: wrap;
+}
+.primary-button,
+a.primary-button {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    padding: 0.5rem 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.primary-button:hover,
+a.primary-button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.wf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+}
+.wf-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    box-shadow: var(--shadow-sm);
+}
+.wf-card-disabled { opacity: 0.55; }
+.wf-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+.wf-card-title { display: flex; align-items: center; gap: var(--space-2); }
+.wf-priority {
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: var(--bg-button-secondary);
+    color: var(--text);
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.04em;
+}
+.wf-card-graph {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+.wf-card-footer {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    margin-top: auto;
+}
+
+.wf-mini-block {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    border: 1px solid var(--border-soft);
+    background: var(--bg-input);
+    display: flex;
+    align-items: center;
+    /* Wrap so multi-value rows ("av1 or vp9 or mpeg4 …") don't blow the
+       block out wider than the card. The row grows vertically instead. */
+    flex-wrap: wrap;
+    gap: 0.3rem 0.4rem;
+}
+.wf-mini-icon { color: var(--text-muted); font-size: 0.75rem; }
+.wf-mini-op { color: var(--text-muted); font-style: italic; }
+.wf-mini-value {
+    color: var(--text);
+    font-weight: 600;
+    font-family: ui-monospace, monospace;
+}
+.wf-mini-trigger {
+    border-color: rgb(var(--accent-rgb) / 0.45);
+    background: var(--accent-tint-soft);
+    color: var(--text);
+}
+.wf-mini-condition {
+    border-color: rgb(var(--blue-rgb) / 0.45);
+    background: rgb(var(--blue-rgb) / 0.10);
+}
+.wf-mini-empty { color: var(--text-muted); font-style: italic; }
+.wf-mini-action-video {
+    border-color: rgb(var(--green-rgb) / 0.45);
+    background: rgb(var(--green-rgb) / 0.10);
+}
+.wf-mini-action-audio {
+    border-color: rgb(var(--orange-rgb) / 0.45);
+    background: rgb(var(--orange-rgb) / 0.10);
+}
+.wf-mini-connector {
+    width: 2px;
+    height: 10px;
+    background: var(--border-soft);
+    margin: 0 auto;
+}
+
+/* ===== Workflows: editor canvas (node-graph) ===== */
+.wf-edit-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.wf-edit-header h1 { font-size: 1.4rem; }
+.wf-edit-header-spacer { flex: 1; }
+
+.wf-toolbar {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: var(--space-4);
+    align-items: end;
+    margin-bottom: var(--space-4);
+}
+.wf-toolbar .settings-row { margin: 0; }
+
+.wf-canvas-wrap {
+    background:
+        radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.04) 1px, transparent 0)
+        0 0 / 16px 16px,
+        var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
+    min-height: 60vh;
+}
+.wf-canvas {
+    max-width: 460px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.wf-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    /* Intentionally NOT overflow: hidden — the multi-select popover inside
+       a condition block is absolute-positioned below it, and overflow:hidden
+       would clip it out of view. The header rounds its own top corners
+       below so the colored top edge still matches the block radius. */
+    transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.wf-block-dragging { opacity: 0.4; }
+.wf-block-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+    background: var(--surface-hover);
+    border-bottom: 1px solid var(--border-soft);
+    /* Match the block's outer radius so the header background doesn't poke
+       past the rounded corners now that the block isn't clipping. */
+    border-top-left-radius: calc(var(--radius-md) - 1px);
+    border-top-right-radius: calc(var(--radius-md) - 1px);
+}
+.wf-block-icon { font-size: 0.85rem; }
+.wf-block-title { flex: 1; }
+.wf-block-grip {
+    cursor: grab;
+    color: var(--text-muted);
+    user-select: none;
+    letter-spacing: -2px;
+    font-size: 1rem;
+    padding: 0 0.2rem;
+}
+.wf-block-grip:active { cursor: grabbing; }
+.wf-block-remove {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.4rem;
+    border-radius: var(--radius-sm);
+}
+.wf-block-remove:hover { background: var(--tint-red); color: var(--red); }
+.wf-block-body {
+    padding: 0.6rem 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+.wf-block-note {
+    flex-basis: 100%;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.wf-input {
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+    min-width: 0;
+}
+.wf-input-field { flex: 1.4; }
+.wf-input-op    { flex: 1; }
+.wf-input-value { flex: 1.2; }
+.wf-input-target { flex: 1; min-width: 140px; }
+
+/* Multi-select control — used for string-typed condition values. The
+   trigger displays the current selection as chips; the popover holds a
+   checkbox per allowed value. */
+.wf-multi {
+    position: relative;
+    flex: 1.2;
+    min-width: 140px;
+}
+.wf-multi-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.4rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+    min-height: 32px;
+}
+.wf-multi.is-open .wf-multi-trigger {
+    border-color: var(--accent);
+}
+.wf-multi-chips {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+    min-width: 0;
+}
+.wf-multi-placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.82rem;
+}
+.wf-multi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: var(--accent-tint-strong);
+    border: 1px solid var(--accent-tint-border);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 0.05rem 0.45rem;
+    font-size: 0.78rem;
+    font-family: ui-monospace, monospace;
+    line-height: 1.4;
+}
+.wf-multi-chip-x {
+    cursor: pointer;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0 0.1rem;
+    color: var(--accent);
+    opacity: 0.7;
+}
+.wf-multi-chip-x:hover { opacity: 1; }
+.wf-multi-chevron {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.wf-multi-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    padding: 0.3rem;
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+/* The UA's `[hidden] { display: none }` rule has the same specificity as
+   the class above and loads first, so the class wins and the popover stays
+   visible. Re-assert hidden here so toggling via the `hidden` attribute
+   (what the JS does) actually removes it from the layout. */
+.wf-multi-popover[hidden] { display: none; }
+.wf-multi-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85rem;
+    user-select: none;
+}
+.wf-multi-option:hover { background: var(--surface-hover); }
+.wf-multi-option input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Block type accents — colored top edge for quick at-a-glance read. */
+.wf-block-trigger {
+    border-color: rgb(var(--accent-rgb) / 0.5);
+    box-shadow: 0 -3px 0 0 var(--accent) inset, var(--shadow-sm);
+}
+.wf-block-condition {
+    border-color: rgb(var(--blue-rgb) / 0.5);
+    box-shadow: 0 -3px 0 0 var(--blue) inset, var(--shadow-sm);
+}
+.wf-block-action-video {
+    border-color: rgb(var(--green-rgb) / 0.5);
+    box-shadow: 0 -3px 0 0 var(--green) inset, var(--shadow-sm);
+}
+.wf-block-action-audio {
+    border-color: rgb(var(--orange-rgb) / 0.5);
+    box-shadow: 0 -3px 0 0 var(--orange) inset, var(--shadow-sm);
+}
+
+/* Connector "wires" between blocks — vertical line + small node dots. */
+.wf-connector {
+    width: 3px;
+    height: 22px;
+    background: var(--border-soft);
+    margin: 0 auto;
+    position: relative;
+}
+.wf-connector::before,
+.wf-connector::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-soft);
+    transform: translate(-50%, 0);
+}
+.wf-connector::before { top: -4px; }
+.wf-connector::after  { bottom: -4px; }
+
+/* Drop zones become visible while dragging a condition. */
+.wf-drop-zone {
+    height: 12px;
+    margin: -6px 0;
+    border-radius: var(--radius-sm);
+    transition: background var(--t-fast);
+    pointer-events: auto;
+}
+.wf-drop-zone-active {
+    background: var(--accent-tint-strong);
+    height: 36px;
+    margin: 4px 0;
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.wf-add-block {
+    align-self: center;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-soft);
+    border-radius: var(--radius-md);
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.wf-add-block:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-tint-soft);
+}
+
+.wf-empty-conditions {
+    align-self: center;
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+    border: 1px dashed var(--border-soft);
+    border-radius: var(--radius-md);
+}
+
+/* IF / AND / OR badges in the editor block headers. The select reuses the
+   same badge styling so AND/OR look like a single chip the user can tweak. */
+.wf-conn-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-sm);
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+.wf-conn-if {
+    background: var(--accent-tint-strong);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+.wf-conn-select {
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border-soft);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 1rem;
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                      linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+    background-position:
+        right 0.4rem top 50%,
+        right 0.2rem top 50%;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+}
+.wf-conn-select.wf-conn-and {
+    background-color: rgb(var(--blue-rgb) / 0.18);
+    border-color: rgb(var(--blue-rgb) / 0.5);
+    color: var(--blue);
+}
+.wf-conn-select.wf-conn-or {
+    background-color: rgb(var(--orange-rgb) / 0.18);
+    border-color: rgb(var(--orange-rgb) / 0.5);
+    color: var(--orange);
+}
+
+/* OR connectors break the visual flow with an orange wire + a label. AND
+   connectors are styled as the default blue-ish wire (no override needed). */
+.wf-connector-or {
+    height: 36px;
+    background: rgb(var(--orange-rgb) / 0.55);
+}
+.wf-connector-or::before,
+.wf-connector-or::after {
+    background: var(--orange);
+}
+.wf-connector-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--orange);
+    color: var(--text-on-accent);
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+/* List-page mini-graph badges + connector flavors. */
+.wf-mini-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.1rem 0.35rem;
+    border-radius: var(--radius-sm);
+    line-height: 1.2;
+    text-transform: uppercase;
+    margin-right: 0.2rem;
+}
+.wf-mini-badge-if {
+    background: var(--accent-tint-strong);
+    color: var(--accent);
+}
+.wf-mini-badge-and {
+    background: rgb(var(--blue-rgb) / 0.22);
+    color: var(--blue);
+}
+.wf-mini-badge-or {
+    background: rgb(var(--orange-rgb) / 0.25);
+    color: var(--orange);
+}
+.wf-mini-connector-or {
+    /* Tall enough for the OR badge to sit centered without crowding the
+       blocks on either side. The default 10px connector below stays as is. */
+    height: 24px;
+    background: rgb(var(--orange-rgb) / 0.55);
+    position: relative;
+}
+.wf-mini-conn-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--orange);
+    color: var(--text-on-accent);
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 0 0.3rem;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+}
+
+/* ===== Toasts (bottom-right stack) ===== */
+#convertarr-toasts {
+    position: fixed;
+    bottom: var(--space-4);
+    right: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    z-index: 1000;
+    pointer-events: none;
+}
+.toast {
+    pointer-events: auto;
+    min-width: 280px;
+    max-width: 420px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    color: var(--text);
+    font-size: 0.88rem;
+    padding: 0.7rem 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    transform: translateX(110%);
+    opacity: 0;
+    transition: transform 0.22s ease, opacity 0.22s ease;
+}
+.toast.toast-in {
+    transform: translateX(0);
+    opacity: 1;
+}
+.toast.toast-leaving {
+    transform: translateX(110%);
+    opacity: 0;
+}
+.toast-body {
+    flex: 1;
+    line-height: 1.4;
+}
+.toast-action {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+}
+.toast-action:hover { background: var(--accent-tint); }
+.toast-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0 0.3rem;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+.toast-close:hover { background: var(--surface-hover); color: var(--text); }
+
+/* Per-type accent — left border + matching action link color. */
+.toast-success     { border-left-color: var(--green); }
+.toast-success .toast-action { color: var(--green); }
+.toast-warning     { border-left-color: var(--orange); }
+.toast-warning .toast-action { color: var(--orange); }
+.toast-error       { border-left-color: var(--red); }
+.toast-error .toast-action { color: var(--red); }
+
+/* ===== Dashboard ===== */
+.dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.dash-header-meta {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+.dash-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    font-size: 0.8rem;
+}
+.dash-pill .dim { font-size: 0.75rem; }
+
+.dash-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.dash-section-meta {
+    display: flex;
+    gap: 0.4rem;
+}
+
+/* "Now encoding" hero */
+.dash-now { margin-bottom: var(--space-5); }
+.dash-now-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: var(--space-3);
+}
+.dash-now-card {
+    position: relative;
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    background:
+        linear-gradient(135deg, var(--accent-tint-soft), transparent 60%),
+        var(--bg-card);
+    border: 1px solid var(--accent-tint-border);
+    box-shadow: var(--shadow-sm);
+}
+.dash-now-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.dash-now-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.dash-now-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.dash-now-bar {
+    flex: 1;
+    height: 10px;
+    background: rgb(var(--accent-rgb) / 0.12);
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+}
+.dash-now-bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    border-radius: 999px;
+    transition: width 0.6s ease;
+    box-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.4);
+}
+.dash-now-pct {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--accent);
+    min-width: 4ch;
+    text-align: right;
+}
+.dash-now-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    font-size: 0.85rem;
+}
+.dash-now-meta .dim { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.dash-now-meta strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.dash-empty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    color: var(--text-muted);
+    font-size: 0.92rem;
+}
+.dash-empty-soft {
+    border-style: dashed;
+    background: var(--surface-hover);
+}
+.dash-empty-icon {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.dash-idle { padding: var(--space-5); }
+.dash-idle-title {
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+.dash-idle-sub { font-size: 0.85rem; }
+
+/* 24-hour pulse strip */
+.dash-pulse {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3);
+    margin: var(--space-5) 0;
+}
+.dash-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    box-shadow: var(--shadow-sm);
+}
+.dash-stat-warn { border-color: rgb(var(--orange-rgb) / 0.5); }
+.dash-stat-warn .dash-stat-value { color: var(--orange); }
+.dash-stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.dash-stat-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.3rem;
+}
+
+/* Two-panel grid (recent activity + system) */
+.dash-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-4);
+}
+@media (max-width: 1000px) { .dash-grid { grid-template-columns: 1fr; } }
+.dash-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    box-shadow: var(--shadow-sm);
+}
+.dash-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-soft);
+}
+.dash-panel-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+.dash-panel-link:hover { color: var(--accent); }
+
+.dash-activity {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.dash-activity-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.55rem 0;
+}
+.dash-activity-row + .dash-activity-row { border-top: 1px solid var(--border-soft); }
+.dash-activity-icon {
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.dash-activity-done .dash-activity-icon    { background: var(--tint-green);  color: var(--green); }
+.dash-activity-failed .dash-activity-icon  { background: var(--tint-red);    color: var(--red); }
+.dash-activity-skipped .dash-activity-icon { background: var(--tint-muted);  color: var(--text-muted); }
+.dash-activity-body {
+    flex: 1;
+    min-width: 0;
+}
+.dash-activity-title {
+    color: var(--text);
+    font-size: 0.92rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dash-activity-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    margin-top: 0.15rem;
+}
+.dash-activity-time {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-health {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+.dash-health li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.4rem 0;
+}
+.dash-health li + li { border-top: 1px solid var(--border-soft); }
+.dash-health-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+}
+.dash-health-ok    { background: var(--tint-green);  color: var(--green); }
+.dash-health-warn  { background: var(--tint-orange); color: var(--orange); }
+.dash-health-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    font-size: 0.85rem;
+}
+.dash-health-body .dim { font-size: 0.78rem; }
+.dash-health-body a { color: var(--accent); }
+.dash-health-body a:hover { color: var(--accent-hover); }
+
+/* ============================================================
+ * Cluster dashboard — multi-node summary, per-node cards, queue.
+ *
+ * Replaces the old "Now encoding" hero. Designed to scale from a single
+ * local node up through host + several remote workers. Per-node cards
+ * stack into a responsive grid; idle/offline nodes still render so the
+ * operator can see the cluster at a glance.
+ * ============================================================ */
+
+/* ---- Cluster stat tiles (top of host-mode fragment) ---- */
+.cluster-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.cluster-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    box-shadow: var(--shadow-sm);
+    transition: border-color var(--t-fast);
+}
+.cluster-stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+}
+.cluster-stat-sub {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: 0.1rem;
+}
+.cluster-stat-label {
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+/* ---- Cluster nodes grid ---- */
+.cluster-nodes-section { margin-bottom: var(--space-5); }
+.cluster-nodes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: var(--space-3);
+}
+
+.node-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+/* Local node = accent (cyan); remote nodes = blue. Offline desaturated. */
+.node-card-local  { border-left-color: var(--accent); }
+.node-card-remote { border-left-color: var(--blue); }
+.node-card-offline { opacity: 0.6; border-left-color: var(--text-dim); }
+
+.node-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-soft);
+}
+.node-card-id {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+.node-card-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.18);
+    flex-shrink: 0;
+}
+.node-card-remote .node-card-dot {
+    background: var(--blue);
+    box-shadow: 0 0 0 4px rgb(var(--blue-rgb) / 0.18);
+}
+.node-card-offline .node-card-dot {
+    background: var(--text-dim);
+    box-shadow: 0 0 0 4px var(--surface-hover);
+}
+.node-card-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+.node-card-title strong { font-size: 1rem; }
+.node-card-role {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    background: var(--surface-hover);
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm);
+}
+.node-card-sub {
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+}
+.node-card-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+.node-card-slots {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- Per-job mini-card inside node card ---- */
+.node-card-jobs {
+    display: flex;
+    flex-direction: column;
+}
+.node-job {
+    padding: var(--space-3) var(--space-4);
+}
+.node-job + .node-job {
+    border-top: 1px solid var(--border-soft);
+}
+.node-job-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+.node-job-title {
+    font-weight: 600;
+    font-size: 0.92rem;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.node-job-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+.node-job-bar {
+    flex: 1;
+    height: 8px;
+    background: rgb(var(--accent-rgb) / 0.10);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.node-job-bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    border-radius: 999px;
+    transition: width 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+    box-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.4);
+}
+.node-card-remote .node-job-bar { background: rgb(var(--blue-rgb) / 0.10); }
+.node-card-remote .node-job-bar > div {
+    background: linear-gradient(90deg, var(--blue), #79c8e8);
+    box-shadow: 0 0 6px rgb(var(--blue-rgb) / 0.4);
+}
+.node-job-pct {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--accent);
+    min-width: 4ch;
+    text-align: right;
+}
+.node-card-remote .node-job-pct { color: var(--blue); }
+.node-job-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    font-size: 0.8rem;
+}
+.node-job-meta .dim { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.node-job-meta strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.node-card-idle {
+    padding: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--text-muted);
+    font-size: 0.88rem;
+}
+.node-card-idle .dash-empty-icon {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.85rem;
+}
+
+/* ---- Cluster queue table ---- */
+.cluster-queue-section { margin-bottom: var(--space-5); }
+.cluster-queue-table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+.cluster-queue-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+.cluster-queue-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.6rem var(--space-4);
+    background: var(--surface-hover);
+    border-bottom: 1px solid var(--border-soft);
+}
+.cluster-queue-table td {
+    padding: 0.55rem var(--space-4);
+    border-bottom: 1px solid var(--border-soft);
+}
+.cluster-queue-table tr:last-child td { border-bottom: none; }
+.cluster-queue-table tr:hover td { background: var(--surface-hover); }
+.cluster-queue-title {
+    color: var(--text);
+    font-weight: 500;
+}
+.cluster-queue-path {
+    font-size: 0.72rem;
+    margin-top: 0.1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 480px;
+}
+
+/* ============================================================
+ * Mobile (≤ 768px)
+ *
+ * Layout strategy:
+ *   - Sidebar becomes a slide-in drawer (transform translateX) backed
+ *     by a tap-to-dismiss backdrop. Toggled by JS via .app--nav-open
+ *     in base.html.
+ *   - Topbar gets a hamburger button on the left (hidden on desktop).
+ *   - Content goes full-width.
+ *   - Tables/poster grids/toolbars adapt to narrow viewports.
+ * ============================================================ */
+
+/* Hamburger button + backdrop — desktop hides them. */
+.topbar-menu {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    padding: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.topbar-menu:hover { background: var(--surface-hover); }
+.topbar-menu svg { display: block; }
+
+.nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--scrim);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+}
+.app--nav-open .nav-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+    /* Single-column layout — sidebar is overlaid, not in the grid. */
+    .app {
+        grid-template-columns: 1fr;
+    }
+
+    /* Sidebar becomes a slide-in drawer. */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(280px, 82vw);
+        z-index: 100;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        box-shadow: var(--shadow-lg);
+    }
+    .app--nav-open .sidebar {
+        transform: translateX(0);
+    }
+    /* Slightly larger touch targets for nav items on touch devices. */
+    .nav-item, .nav-sub {
+        padding-top: 0.7rem;
+        padding-bottom: 0.7rem;
+        font-size: 1rem;
+    }
+
+    /* Backdrop is rendered as a sibling of .main, so it has a layer. */
+    .nav-backdrop { display: block; }
+
+    /* Topbar adjustments — hamburger appears, search shrinks/hides. */
+    .topbar {
+        padding: 0 var(--space-3);
+        gap: var(--space-2);
+    }
+    .topbar-menu { display: inline-flex; }
+    .search { flex: 1 1 auto; min-width: 0; }
+
+    /* The encoder pill takes a chunk of horizontal space — drop it on
+       phone widths so the search field has room. The dashboard's System
+       panel still surfaces it. */
+    .topbar-pill { display: none; }
+
+    /* Content padding tightens up. */
+    .content { padding: var(--space-4); }
+
+    /* Tables go horizontal-scroll instead of overflowing the viewport. */
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    /* Poster grids: smaller cards on narrow viewports so 2 fit per row. */
+    .poster-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); }
+
+    /* Toolbars (filter + sort dropdowns above the poster grid) reflow to
+       wrap and horizontally scroll when too crowded. */
+    .toolbar {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+
+    /* Form rows: label above input on phones. */
+    .settings-row,
+    .form-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .settings-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Hero / detail page: stack poster + info column. */
+    .hero {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+    }
+    .hero-poster {
+        width: 100%;
+        max-width: 220px;
+        margin: 0 auto;
+        aspect-ratio: 2 / 3;
+    }
+
+    /* Dashboard hero cards: single column. */
+    .dash-now-cards {
+        grid-template-columns: 1fr;
+    }
+    /* And the two-panel grid stacks (already does at 1000px, restate to be
+       explicit about the mobile breakpoint). */
+    .dash-grid { grid-template-columns: 1fr; }
+
+    /* Workflow cards: full width. */
+    .wf-grid { grid-template-columns: 1fr; }
+    /* Editor canvas — keep block widths sane. */
+    .wf-canvas { max-width: 100%; }
+    .wf-canvas-wrap { padding: var(--space-3); }
+    /* Editor toolbar (Name/Priority/Enabled) collapses to a single column. */
+    .wf-toolbar { grid-template-columns: 1fr; }
+
+    /* Filter + sort menu panels become a bottom-sheet on mobile. Both menus
+       reuse `.filter-menu-panel`, and on a narrow viewport an absolute-
+       positioned dropdown anchored to its trigger button overflows the
+       viewport (the Sort button sits mid-toolbar, so a button-anchored
+       panel runs off the left). Position-fixed at the bottom dodges the
+       overflow problem entirely and reads as a familiar mobile pattern. */
+    .filter-menu-panel {
+        position: fixed;
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        min-width: 0;
+        max-width: 100vw;
+        max-height: 60vh;
+        overflow-y: auto;
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        box-shadow: 0 -8px 24px rgb(0 0 0 / 0.5);
+        padding: var(--space-3) 0 calc(env(safe-area-inset-bottom, 0px) + var(--space-3));
+    }
+    /* Larger touch targets for the items inside. */
+    .filter-menu-item {
+        padding: 0.7rem var(--space-4);
+        font-size: 0.95rem;
+    }
+
+    /* Bulk-select footer: stack info + actions when the action group wraps. */
+    .bulk-footer {
+        flex-wrap: wrap;
+        margin-left: calc(-1 * var(--space-4));
+        margin-right: calc(-1 * var(--space-4));
+        padding: var(--space-2) var(--space-4);
+    }
+    .bulk-footer-actions { flex-wrap: wrap; }
+
+    /* Toasts: full-width-ish on phones. */
+    #convertarr-toasts {
+        left: var(--space-3);
+        right: var(--space-3);
+        bottom: var(--space-3);
+    }
+    .toast { min-width: 0; max-width: 100%; }
+
+    /* Workflow list/edit header buttons can wrap. */
+    .wf-list-header { flex-wrap: wrap; }
+    .wf-edit-header { flex-wrap: wrap; row-gap: var(--space-2); }
+
+    /* Filter editor / workflow editor dialogs: full-bleed on phones. */
+    .filter-dialog {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    .filter-dialog-inner { max-height: 100vh; }
+}
+
+/* ============================================================
+ * Animations — subtle motion across the whole app.
+ *
+ * Goals: every show/hide should feel intentional, not abrupt.
+ * Constraints: never block input, keep total motion under ~250ms,
+ * respect prefers-reduced-motion (full kill-switch at the bottom).
+ *
+ * Trick used for `<details>` panels: by default a closed <details>
+ * sets every non-summary child to `display: none`, which can't be
+ * transitioned. We override that with `display: flex` (always
+ * rendered) and gate visibility with opacity + transform + the
+ * `[open]` parent attribute. That makes the panel transition
+ * smoothly from closed → open. `pointer-events: none` while closed
+ * keeps the invisible panel from intercepting clicks.
+ * ============================================================ */
+
+/* Page chrome fade-in on first paint. */
+@keyframes convertarr-page-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.content > * {
+    animation: convertarr-page-in 0.25s ease both;
+}
+/* Don't re-trigger the fade on HTMX swaps (only first page load). */
+.content > [hx-get],
+.content > [hx-post],
+.content > [hx-trigger] { animation: none; }
+
+/* ----- Filter / Sort / Workflow-new dropdowns (all <details>-based) -----
+   Same keyframe-on-open trick as the mobile bottom-sheet: <details> can
+   skip transition frames between rapid open/close cycles, but a CSS
+   animation re-runs from its first frame every time the [open] selector
+   matches. Close uses transition for the fade-out. */
+.filter-menu-panel,
+.wf-new-menu-panel {
+    display: flex !important;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top right;
+    transition:
+        opacity 0.14s ease,
+        transform 0.14s ease;
+}
+.filter-menu[open] .filter-menu-panel,
+.wf-new-menu[open] .wf-new-menu-panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    animation: convertarr-pop-down 0.18s ease both;
+}
+@keyframes convertarr-pop-down {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* ----- Multi-select popover (class-toggled, not <details>) ----- */
+.wf-multi-popover {
+    /* Always rendered so the transition has a frame to interpolate from. */
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top left;
+    transition:
+        opacity 0.14s ease,
+        transform 0.14s ease;
+}
+.wf-multi-popover[hidden] {
+    /* Override the previous display:none — visibility now flows via .is-open. */
+    display: flex;
+}
+.wf-multi.is-open .wf-multi-popover {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+
+/* ----- Modal dialogs — fade backdrop + scale-in dialog ----- */
+/* Uses @starting-style + transition-behavior:allow-discrete so the
+   browser can interpolate from the dialog's "appearing" frame to its
+   open frame. Modern browsers (Chrome 117+, Firefox 129+, Safari 17.5+)
+   honor it; older ones just skip the fade and snap open. */
+.filter-dialog {
+    transition:
+        opacity 0.18s ease,
+        transform 0.18s ease,
+        overlay 0.18s ease allow-discrete,
+        display 0.18s ease allow-discrete;
+}
+.filter-dialog[open] {
+    opacity: 1;
+    transform: scale(1);
+}
+.filter-dialog:not([open]) {
+    opacity: 0;
+    transform: scale(0.96);
+}
+@starting-style {
+    .filter-dialog[open] {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+}
+.filter-dialog::backdrop {
+    background: var(--scrim);
+    opacity: 0;
+    transition: opacity 0.18s ease, overlay 0.18s ease allow-discrete, display 0.18s ease allow-discrete;
+}
+.filter-dialog[open]::backdrop { opacity: 1; }
+@starting-style {
+    .filter-dialog[open]::backdrop { opacity: 0; }
+}
+
+/* ----- Toast tweaks — already had slide-in, just smooth the curve. */
+.toast {
+    transition:
+        transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+        opacity 0.22s ease;
+}
+
+/* ----- Card micro-interactions ------------------------------------------
+ * One hover pattern for every "item" card that shows up in a grid: a subtle
+ * accent-tinted border + soft shadow lift. No transform — translateY(-1px)
+ * looks fine on a single card but causes visible jitter when hovering across
+ * a grid of them, and the bordered shadow already reads as "interactive."
+ * Container panels (.card, .dash-panel) are NOT included — they're the
+ * page chrome, not items, so a hover there feels weird.
+ * ----------------------------------------------------------------------- */
+.node-card,
+.wf-card,
+.dash-stat,
+.stats-kpi,
+.cluster-stat,
+.dash-now-card {
+    transition:
+        background-color var(--t-fast),
+        border-color var(--t-fast),
+        box-shadow var(--t-fast);
+}
+.wf-card:hover,
+.dash-stat:hover,
+.stats-kpi:hover,
+.cluster-stat:hover,
+.dash-now-card:hover {
+    border-color: var(--accent-tint-border);
+    box-shadow: var(--shadow-md);
+}
+/* Node card has a colored left border (host=cyan, worker=blue) that the
+ * border-color shorthand would clobber. Set the other three sides only. */
+.node-card:hover {
+    border-top-color: var(--accent-tint-border);
+    border-right-color: var(--accent-tint-border);
+    border-bottom-color: var(--accent-tint-border);
+    box-shadow: var(--shadow-md);
+}
+
+/* "Now encoding" hero gets a soft pulse on the progress bar so the bar
+   itself feels alive even when there's no progress event recently. */
+.dash-now-bar > div { transition: width 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+/* Buttons and link-buttons get a tiny press-down on active. */
+button:active,
+a.button-link:active,
+.primary-button:active {
+    transform: translateY(1px);
+}
+
+/* Workflow block drag has an opacity ghosting; sharpen the snap-back. */
+.wf-block { transition: transform var(--t-fast), box-shadow var(--t-fast), opacity var(--t-fast); }
+
+/* Nav drawer (mobile) already animates via transform; nothing to add. */
+
+/* ============================================================
+ * Mobile bottom-sheet variant for filter/sort menus — slides up
+ * from the screen edge instead of fading down from a button.
+ *
+ * Uses a keyframe animation rather than a transition. With
+ * <details>-based panels the browser can drop the "starting
+ * frame" between toggles (close → open → close → open), which
+ * causes the second open to snap rather than slide. A CSS
+ * animation re-runs from frame 0 each time the [open] selector
+ * matches, so every open animates regardless of prior state.
+ * ============================================================ */
+@media (max-width: 768px) {
+    .filter-menu-panel {
+        /* Resting (closed) state — off-screen below the viewport. */
+        transform: translateY(100%);
+        opacity: 0;
+        transform-origin: bottom center;
+        /* Smooth out the close (no animation runs on close, so the
+           transition handles dismissal). */
+        transition: transform 0.22s ease, opacity 0.18s ease;
+    }
+    .filter-menu[open] .filter-menu-panel {
+        animation: convertarr-sheet-up 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes convertarr-sheet-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ============================================================
+ * Reduced-motion override — kill every animation/transition for
+ * users who've asked the OS to dial things down.
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Phone portrait — extra-tight spacing for very small viewports. */
+@media (max-width: 480px) {
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1.1rem; }
+    .content { padding: var(--space-3); }
+    /* Even smaller posters on phone-portrait so titles still fit. */
+    .poster-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    /* Editor block body wraps tighter. */
+    .wf-block-body { padding: 0.5rem; gap: 0.4rem; }
+    .wf-input { font-size: 0.8rem; }
+
+    /* Status pulse strip + KPI cards look better single-column at this
+       width than half-width and half-empty. */
+    .dash-pulse,
+    .stats-kpis,
+    .stats-grid { grid-template-columns: 1fr; }
+}

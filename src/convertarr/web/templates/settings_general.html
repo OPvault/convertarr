@@ -12,26 +12,6 @@
 {% block content %}
 <h1>Settings — General</h1>
 
-{% if request.query_params.get("restarting") %}
-<div class="card" style="border-color: var(--orange); background: var(--tint-orange)">
-    <strong style="color: var(--orange)">Server is restarting…</strong>
-    <div class="dim" style="font-size: 0.85rem; margin-top: 0.3rem">
-        Refresh in a few seconds. If the bind address changed, hit the new host:port.
-    </div>
-</div>
-{% endif %}
-
-{% if request.query_params.get("manual_restart") %}
-<div class="card" style="border-color: var(--orange); background: var(--tint-orange)">
-    <strong style="color: var(--orange)">Saved — manual restart needed</strong>
-    <div class="dim" style="font-size: 0.85rem; margin-top: 0.3rem">
-        Convertarr was launched via <code>uvicorn</code> directly (likely with <code>--reload</code> for dev),
-        so it can't safely restart itself — the new bind address is saved but won't apply until you stop
-        the current process and relaunch with the <code>convertarr</code> command.
-    </div>
-</div>
-{% endif %}
-
 <div class="card card-row">
     <div>
         <strong>Poster cache</strong>
@@ -71,25 +51,6 @@
         </div>
     </div>
     <button type="submit" style="margin-top: var(--space-4)">Save</button>
-</form>
-
-<h2>Server</h2>
-<form method="post" action="/settings/general/server" class="card">
-    <div class="settings-grid">
-        <div class="settings-row">
-            <label>Bind address</label>
-            <input type="text" name="bind_address" value="{{ bind_address }}" placeholder="0.0.0.0:8000" required>
-            <div class="field-help">
-                Use <code>0.0.0.0:8000</code> to expose Convertarr to the LAN.
-                <code>127.0.0.1:8000</code> keeps it loopback-only.
-                <strong>Only applies when launched via the <code>convertarr</code> command</strong>
-                (e.g. <code>convertarr</code> or <code>convertarr --reload</code>).
-                Running <code>uvicorn</code> directly bypasses this — uvicorn's host/port flags
-                win because it binds the socket itself before our code runs.
-            </div>
-        </div>
-    </div>
-    <button type="submit" style="margin-top: 1rem">Save & restart</button>
 </form>
 
 <h2>Authentication</h2>
@@ -158,27 +119,27 @@
 <h2>Conversion behavior</h2>
 <form method="post" action="/settings/general/conversion" class="card">
     <div class="settings-row">
-        <label for="max_concurrent_jobs">Parallel encode jobs</label>
-        <input type="number" id="max_concurrent_jobs" name="max_concurrent_jobs"
-               value="{{ max_concurrent_jobs }}" min="1" max="16" required>
-        <div class="field-help">
-            How many encodes run in parallel. Default <strong>1</strong>. A capable GPU can usually
-            handle 3–4 concurrent VAAPI/NVENC sessions without losing per-job throughput;
-            CPU encoding (libx265) generally wants <code>1</code> per physical core at most.
-            Changes apply within a few seconds — no restart needed.
-        </div>
-    </div>
-    <div class="settings-row">
         <label class="toggle">
             <input type="checkbox" name="delete_originals" {% if delete_originals %}checked{% endif %}>
             <span class="toggle-slider"></span>
             <span class="toggle-label">Delete originals after conversion</span>
         </label>
-        <div class="field-help" style="color: var(--red)">
-            ⚠️ Dangerous. With this on, the source file is permanently deleted after a successful encode
-            instead of being moved to <code>.old/</code> alongside it. Recommended OFF.
+        <div class="field-help">
+            Default <strong>ON</strong>. The original is deleted only after the new file is in place,
+            so a failed or cancelled encode never touches it. Turn this <strong>off</strong> to keep
+            the source moved to a sibling <code>.convertarr-backup/</code> folder instead of permanently removed.
+        </div>
+    </div>
+    <div class="settings-row" style="margin-top: var(--space-4)">
+        <label for="max_concurrent_jobs">Max concurrent jobs</label>
+        <input type="number" id="max_concurrent_jobs" name="max_concurrent_jobs"
+               value="{{ max_concurrent_jobs }}" min="1" max="16" required>
+        <div class="field-help">
+            Limits how many ffmpeg processes run on this machine at once. When paired
+            with a host, this also caps how many jobs this worker will pull from the host.
         </div>
     </div>
     <button type="submit" style="margin-top: 1rem">Save</button>
 </form>
+
 {% endblock %}

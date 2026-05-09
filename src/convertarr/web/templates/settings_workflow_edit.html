@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="wf-edit-header">
+    <a href="/settings/workflows" class="ghost button-link">← Back</a>
+    <h1 style="margin: 0">{% if workflow %}Edit Workflow{% else %}New Workflow{% endif %}</h1>
+    <div class="wf-edit-header-spacer"></div>
+    <button type="button" id="wf-save" class="primary-button">Save</button>
+</div>
+
+<div class="wf-toolbar card">
+    <div class="settings-row">
+        <label>Name</label>
+        <input type="text" id="wf-name" placeholder="e.g. Convert AV1 to HEVC" required>
+    </div>
+    <div class="settings-row">
+        <label>Priority</label>
+        <input type="number" id="wf-priority" min="0" max="9999" value="100">
+        <div class="field-help" style="font-size:0.78rem">Lower wins.</div>
+    </div>
+    <div class="settings-row">
+        <label class="toggle">
+            <input type="checkbox" id="wf-enabled" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Enabled</span>
+        </label>
+    </div>
+</div>
+
+<div class="wf-canvas-wrap">
+    <div class="wf-canvas" id="wf-canvas"></div>
+</div>
+
+<script id="wf-meta" type="application/json">
+{
+    "fields": {{ fields | tojson }},
+    "ops": {{ ops | tojson }},
+    "video_targets": {{ video_targets | tojson }},
+    "audio_targets": {{ audio_targets | tojson }},
+    "workflow": {{ (workflow if workflow else None) | tojson }},
+    "default_name": {{ (default_name or "") | tojson }}
+}
+</script>
+{% endblock %}

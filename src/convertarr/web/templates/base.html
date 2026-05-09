@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <script src="/static/toasts.js" defer></script>
     <script src="/static/filters.js" defer></script>
     <script src="/static/select.js" defer></script>
+    <script src="/static/workflow_editor.js" defer></script>
     <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -40,9 +42,11 @@
                         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="nav-label">Settings</span>
                         <span class="nav-chevron">▾</span>
                     </summary>
-                    <a href="/settings/general" class="nav-sub {% if active == 'settings/general' %}active{% endif %}">General</a>
-                    <a href="/settings/sonarr"  class="nav-sub {% if active == 'settings/sonarr' %}active{% endif %}">Sonarr</a>
-                    <a href="/settings/radarr"  class="nav-sub {% if active == 'settings/radarr' %}active{% endif %}">Radarr</a>
+                    <a href="/settings/general"   class="nav-sub {% if active == 'settings/general' %}active{% endif %}">General</a>
+                    <a href="/settings/workflows" class="nav-sub {% if active == 'settings/workflows' %}active{% endif %}">Workflows</a>
+                    <a href="/settings/nodes"     class="nav-sub {% if active == 'settings/nodes' %}active{% endif %}">Nodes</a>
+                    <a href="/settings/sonarr"    class="nav-sub {% if active == 'settings/sonarr' %}active{% endif %}">Sonarr</a>
+                    <a href="/settings/radarr"    class="nav-sub {% if active == 'settings/radarr' %}active{% endif %}">Radarr</a>
                 </details>
 
                 <details class="nav-group" data-nav-group="system" {% if active.startswith('system') %}open{% endif %}>
@@ -50,14 +54,30 @@
                         <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></span><span class="nav-label">System</span>
                         <span class="nav-chevron">▾</span>
                     </summary>
-                    <a href="/system/logs"   class="nav-sub {% if active == 'system/logs' %}active{% endif %}">Logs</a>
-                    <a href="/system/backup" class="nav-sub {% if active == 'system/backup' %}active{% endif %}">Backup</a>
+                    <a href="/system/logs"       class="nav-sub {% if active == 'system/logs' %}active{% endif %}">Logs</a>
+                    <a href="/system/statistics" class="nav-sub {% if active == 'system/statistics' %}active{% endif %}">Statistics</a>
+                    <a href="/system/backup"     class="nav-sub {% if active == 'system/backup' %}active{% endif %}">Backup</a>
+                    <a href="/system/about"      class="nav-sub {% if active == 'system/about' %}active{% endif %}">About</a>
                 </details>
             </nav>
         </aside>
 
+        {# Backdrop dims content when the mobile nav drawer is open. Clicking
+           it closes the drawer (handler below). Hidden via CSS on desktop. #}
+        <div class="nav-backdrop" aria-hidden="true"></div>
+
         <div class="main">
             <header class="topbar">
+                {# Hamburger — visible only on mobile via the .topbar-menu CSS. #}
+                <button type="button" class="topbar-menu" aria-label="Open menu" aria-expanded="false">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         aria-hidden="true">
+                        <line x1="3" y1="6"  x2="21" y2="6"/>
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
                 <div class="search">
                     <span class="search-icon">⌕</span>
                     <input id="poster-search" type="search" placeholder="Search by title…" autocomplete="off">
@@ -107,10 +127,48 @@
             });
         })();
 
+        // Mobile nav drawer — sidebar slides in from the left on small
+        // screens. The .app--nav-open class is the single source of truth;
+        // CSS handles the slide + backdrop. Closes on backdrop click, on any
+        // sidebar link click (so the user lands on the new page without the
+        // drawer still hovering over it), on Escape, and on viewport
+        // resize past the breakpoint (in case the drawer was open in
+        // portrait and the user rotates).
+        (function () {
+            const app = document.querySelector(".app");
+            const menuBtn = document.querySelector(".topbar-menu");
+            const backdrop = document.querySelector(".nav-backdrop");
+            if (!app || !menuBtn) return;
+            const NAV_OPEN = "app--nav-open";
+            function setOpen(open) {
+                app.classList.toggle(NAV_OPEN, open);
+                menuBtn.setAttribute("aria-expanded", String(open));
+                document.body.style.overflow = open ? "hidden" : "";
+            }
+            menuBtn.addEventListener("click", () => setOpen(!app.classList.contains(NAV_OPEN)));
+            if (backdrop) backdrop.addEventListener("click", () => setOpen(false));
+            // Anchor clicks inside the sidebar dismiss the drawer. <summary>
+            // toggles within nav-groups should NOT close the drawer (otherwise
+            // expanding "Settings" would close the menu before the user picks
+            // an item). So filter to <a> only.
+            document.querySelectorAll(".sidebar a").forEach(a => {
+                a.addEventListener("click", () => setOpen(false));
+            });
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && app.classList.contains(NAV_OPEN)) setOpen(false);
+            });
+            // Resize past the desktop breakpoint while the drawer is open
+            // would leave a half-state with body scroll locked. Reset.
+            const desktopMql = window.matchMedia("(min-width: 769px)");
+            desktopMql.addEventListener("change", (e) => { if (e.matches) setOpen(false); });
+        })();
+
         // Mutually exclusive toolbar dropdowns: opening one closes any others.
         // Also closes the open one when the user clicks anywhere outside it.
+        // Selector covers both the Series/Movies filter menus and the
+        // workflow-page "+ New workflow" split menu.
         (function () {
-            const menus = document.querySelectorAll(".filter-menu");
+            const menus = document.querySelectorAll(".filter-menu, .wf-new-menu");
             menus.forEach(function (m) {
                 m.addEventListener("toggle", function () {
                     if (!m.open) return;

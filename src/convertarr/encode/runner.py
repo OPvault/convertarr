@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -98,6 +99,12 @@ class Runner:
         progress = Progress()
         stderr_tail: list[str] = []
         tail_max = 200
+        # Wall-clock anchor for our speed fallback. ffmpeg's `-progress`
+        # stream emits `speed=N/A` intermittently for VAAPI (and other hwaccel
+        # paths) — sometimes the entire encode never reports a usable speed.
+        # We compute encoded_seconds / wall_seconds ourselves so the UI never
+        # shows a blank speed pill just because ffmpeg was being coy.
+        t_start = time.monotonic()
 
         async def pump_stdout() -> None:
             assert proc.stdout is not None
@@ -124,6 +131,19 @@ class Runner:
                         pct = min(100.0, progress.frame / total_frames * 100.0)
                     elif duration_seconds and progress.out_time_us:
                         pct = min(100.0, (progress.out_time_us / 1_000_000.0) / duration_seconds * 100.0)
+                    if progress.speed is None:
+                        wall = time.monotonic() - t_start
+                        encoded_s: float | None = None
+                        if progress.out_time_us:
+                            encoded_s = progress.out_time_us / 1_000_000.0
+                        elif (
+                            progress.frame
+                            and total_frames
+                            and duration_seconds
+                        ):
+                            encoded_s = progress.frame / total_frames * duration_seconds
+                        if encoded_s is not None and wall > 0:
+                            progress.speed = round(encoded_s / wall, 3)
                     log.debug(
                         "job %d progress: pct=%.2f speed=%s fps=%s frame=%s/%s",
                         job_id, pct, progress.speed, progress.fps,

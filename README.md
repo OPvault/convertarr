@@ -12,7 +12,25 @@ pip install -e .
 uvicorn convertarr.main:app --reload
 ```
 
-Open <http://localhost:8000>, add your Sonarr + Radarr instances on the Settings page, and click Rescan on a series or movie.
+Open <http://localhost:6565>, add your Sonarr + Radarr instances on the Settings page, and click Rescan on a series or movie.
+
+## Docker
+
+Prebuilt images are published to GHCR on every push to `main` and on every `v*` tag.
+
+```sh
+docker run -d \
+    --name convertarr \
+    -p 6565:6565 \
+    -v $(pwd)/config:/config \
+    -v /path/to/media:/path/to/media \
+    --device /dev/dri:/dev/dri \
+    ghcr.io/opvault/convertarr:latest
+```
+
+Or use the sample [`docker-compose.yml`](docker-compose.yml) — it has commented blocks for VAAPI (Intel/AMD) and NVENC (NVIDIA) hardware acceleration.
+
+Bind-mount your library at the **same path** Sonarr/Radarr use, so paths Convertarr receives from \*arr resolve directly without per-instance translation.
 
 ## Default codec policy
 

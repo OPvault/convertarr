@@ -1,67 +1,224 @@
-{# HTMX-polled fragment for the dashboard's "Currently running" + queued summary. #}
-<div class="card card-row">
-    <div>
-        <strong>Active encoder:</strong> {{ active_encoder_label }}
-        <span class="dim"> &middot; auto-detected on startup</span>
-    </div>
-    <div class="row-actions">
-        <span class="badge queued">{{ queued_count }} queued</span>
-        <span class="badge running">{{ running|length }} running</span>
-        <span class="badge done">{{ done_count }} done</span>
-        {% if failed_count %}<span class="badge failed">{{ failed_count }} failed</span>{% endif %}
-    </div>
-</div>
+{# Live snapshot — polled every 2s by dashboard.html. Two layouts share
+   one fragment:
+     - host mode: cluster view (per-node cards + cluster queue)
+     - worker mode (`paired_host_url` set): just the jobs running locally,
+       no cluster framing. The worker has exactly one node (itself) and
+       the queue lives on the host, so the multi-node abstraction adds
+       no value here. #}
 
-<h2>Currently running</h2>
-{% if running %}
-<table>
-    <thead>
-        <tr>
-            <th style="width:60px">Job</th>
-            <th>Title</th>
-            <th>Progress</th>
-            <th style="width:90px">Time left</th>
-            <th style="width:80px">Speed</th>
-            <th style="width:80px">FPS</th>
-            <th style="width:120px">Encoder</th>
-            <th style="width:60px"></th>
-        </tr>
-    </thead>
-    <tbody>
+{% if is_worker %}
+
+{# ============================ WORKER MODE ============================ #}
+<section class="dash-now">
+    <header class="dash-section-header">
+        <h2 style="margin: 0">Now encoding</h2>
+        <span class="dash-pill" title="This instance is paired as a worker">
+            <span class="dim">paired with</span>
+            <strong>{{ paired_host_url }}</strong>
+        </span>
+    </header>
+
+    {% if running %}
+    <div class="dash-now-cards">
     {% for j in running %}
-    <tr>
-        <td class="dim">#{{ j.id }}</td>
-        <td>{{ j.title or "-" }}</td>
-        <td>
-            <div class="progress">
-                <div style="width: {{ j.progress }}%"></div>
-                <span class="progress-label">{{ "%.1f"|format(j.progress) }}%</span>
+        <article class="dash-now-card">
+            <div class="dash-now-row">
+                <div class="dash-now-title" title="{{ j.path }}">
+                    {{ j.title }}
+                    {% if j.host_job_id %}
+                    <span class="kbd" style="margin-left: 0.4rem; font-size: 0.7rem"
+                          title="Mirror of host job #{{ j.host_job_id }}">for host</span>
+                    {% endif %}
+                </div>
+                {% if j.state == "cancelling" %}
+                <span class="dim" style="font-size: 0.78rem">stopping…</span>
+                {% endif %}
             </div>
-        </td>
-        <td>{% if j.eta and j.eta != "—" %}{{ j.eta }}{% else %}<span class="dim">—</span>{% endif %}</td>
-        <td>{% if j.speed %}{{ "%.2f"|format(j.speed) }}x{% else %}<span class="dim">—</span>{% endif %}</td>
-        <td>{% if j.fps %}{{ "%.0f"|format(j.fps) }}{% else %}<span class="dim">—</span>{% endif %}</td>
-        <td><span class="kbd">{{ j.encoder or "-" }}</span></td>
-        <td style="text-align: right">
-            {% if j.state == "running" %}
-            <button class="ghost icon-only" title="Cancel"
-                    hx-post="/queue/{{ j.id }}/cancel"
-                    hx-swap="none">×</button>
-            {% elif j.state == "cancelling" %}
-            <span class="dim" style="font-size: 0.78rem">stopping…</span>
-            {% endif %}
-        </td>
-    </tr>
+            <div class="dash-now-progress">
+                <div class="dash-now-bar"><div style="width: {{ j.progress }}%"></div></div>
+                <div class="dash-now-pct">{{ "%.1f"|format(j.progress) }}%</div>
+            </div>
+            <div class="dash-now-meta">
+                <span><span class="dim">ETA</span> <strong>{{ j.eta if j.eta and j.eta != "—" else "—" }}</strong></span>
+                <span><span class="dim">FPS</span> <strong>{{ "%.0f"|format(j.fps) if j.fps else "—" }}</strong></span>
+                <span><span class="dim">Speed</span> <strong>{{ "%.2fx"|format(j.speed) if j.speed else "—" }}</strong></span>
+                <span class="kbd">{{ j.encoder or "-" }}</span>
+                <span class="dim">job #{{ j.id }}</span>
+            </div>
+        </article>
     {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<div class="empty">
-    <div class="empty-icon">⏸</div>
-    <div>No running jobs.</div>
-    <div class="dim" style="margin-top:0.5rem">
-        Quick start: <a href="/settings">add a Sonarr/Radarr instance</a>, then go to
-        <a href="/series">Series</a> or <a href="/movies">Movies</a> and click Rescan.
     </div>
-</div>
+    {% else %}
+    <div class="dash-empty">
+        <span class="dash-empty-icon">✓</span>
+        <span>Idle — waiting for the host to dispatch work.</span>
+    </div>
+    {% endif %}
+</section>
+
+{% else %}
+
+{# ============================== HOST MODE ============================ #}
+
+{# Compact stat strip — same visual language as dash-pulse below. #}
+<section class="cluster-stats">
+    <div class="cluster-stat">
+        <div class="cluster-stat-value">{{ cluster.active_jobs }}</div>
+        <div class="cluster-stat-label">active</div>
+    </div>
+    <div class="cluster-stat">
+        <div class="cluster-stat-value">{{ cluster.queued }}</div>
+        <div class="cluster-stat-label">queued</div>
+    </div>
+    <div class="cluster-stat">
+        <div class="cluster-stat-value">{{ cluster.used_slots }}<span class="cluster-stat-sub">/{{ cluster.total_slots }}</span></div>
+        <div class="cluster-stat-label">slots in use</div>
+    </div>
+    <div class="cluster-stat">
+        <div class="cluster-stat-value">{{ cluster.online_nodes }}<span class="cluster-stat-sub">/{{ cluster.total_nodes }}</span></div>
+        <div class="cluster-stat-label">node{{ "" if cluster.total_nodes == 1 else "s" }} online</div>
+    </div>
+</section>
+
+<section class="cluster-nodes-section">
+    <header class="dash-section-header">
+        <h2 style="margin: 0">Nodes</h2>
+        <a href="/settings/nodes" class="dash-panel-link">Manage →</a>
+    </header>
+
+    <div class="cluster-nodes-grid">
+    {% for n in nodes %}
+    <article class="node-card {% if n.is_local %}node-card-local{% else %}node-card-remote{% endif %} {% if not n.online %}node-card-offline{% endif %}">
+        <header class="node-card-header">
+            <div class="node-card-id">
+                <span class="node-card-dot" aria-hidden="true"></span>
+                <div>
+                    <div class="node-card-title">
+                        <strong>{{ n.name }}</strong>
+                        <span class="node-card-role">{{ "host" if n.is_local else "worker" }}</span>
+                    </div>
+                    <div class="node-card-sub dim">
+                        {% if n.address %}{{ n.address }} · {% endif %}{{ n.encoder_name or "no encoder" }}
+                    </div>
+                </div>
+            </div>
+            <div class="node-card-status">
+                <span class="node-card-slots">{{ n.used_slots }}<span class="dim">/{{ n.max_jobs }}</span></span>
+                <span class="badge {{ 'running' if n.online else 'queued' }}">
+                    {{ '● live' if n.online else '○ ' ~ n.last_heartbeat_relative }}
+                </span>
+            </div>
+        </header>
+
+        {% if n.running_jobs %}
+        <div class="node-card-jobs">
+            {% for j in n.running_jobs %}
+            <div class="node-job">
+                <div class="node-job-row">
+                    <div class="node-job-title" title="{{ j.path }}">
+                        {{ j.title }}
+                        {% if j.host_job_id %}
+                        <span class="kbd" style="margin-left: 0.4rem; font-size: 0.7rem"
+                              title="Mirror of host job #{{ j.host_job_id }}">for host</span>
+                        {% endif %}
+                    </div>
+                    {% if j.state == "running" and not j.host_job_id %}
+                    <button class="ghost icon-only" title="Cancel"
+                            hx-post="/queue/{{ j.id }}/cancel" hx-swap="none">×</button>
+                    {% elif j.state == "running" and j.host_job_id %}
+                    <span class="dim" style="font-size: 0.7rem">cancel from host</span>
+                    {% elif j.state == "cancelling" %}
+                    <span class="dim" style="font-size: 0.78rem; margin-right: 0.4rem">stopping…</span>
+                    <button class="danger icon-only"
+                            title="Force delete — drops the row from the DB"
+                            style="padding: 0.15rem 0.4rem; font-size: 0.8rem"
+                            onclick="if(confirm('Force-delete job #{{ j.id }}? The row will be REMOVED from the database (no History entry). Use only when the worker is gone.')) htmx.ajax('POST', '/queue/{{ j.id }}/force-delete', {swap:'none'})">⌫</button>
+                    {% endif %}
+                </div>
+                <div class="node-job-progress">
+                    <div class="node-job-bar"><div style="width: {{ j.progress }}%"></div></div>
+                    <div class="node-job-pct">{{ "%.1f"|format(j.progress) }}%</div>
+                </div>
+                <div class="node-job-meta">
+                    <span><span class="dim">ETA</span> <strong>{{ j.eta if j.eta and j.eta != "—" else "—" }}</strong></span>
+                    <span><span class="dim">FPS</span> <strong>{{ "%.0f"|format(j.fps) if j.fps else "—" }}</strong></span>
+                    <span><span class="dim">Speed</span> <strong>{{ "%.2fx"|format(j.speed) if j.speed else "—" }}</strong></span>
+                    <span class="kbd">{{ j.encoder or "-" }}</span>
+                    <span class="dim">job #{{ j.id }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="node-card-idle">
+            {% if n.online %}
+                {% if cluster.queued %}
+                    <span class="dash-empty-icon">⏳</span>
+                    <span>Idle — waiting for the next claim.</span>
+                {% else %}
+                    <span class="dash-empty-icon">✓</span>
+                    <span>Idle — all clear.</span>
+                {% endif %}
+            {% else %}
+                <span class="dash-empty-icon" style="background: var(--tint-orange); color: var(--orange)">!</span>
+                <span>Offline — last seen {{ n.last_heartbeat_relative }}.</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </article>
+    {% endfor %}
+    </div>
+</section>
+
+{% if queued_jobs %}
+<section class="cluster-queue-section">
+    <header class="dash-section-header">
+        <h2 style="margin: 0">Up next</h2>
+        <span class="dim" style="font-size: 0.85rem">
+            {{ cluster.queued }} pending
+            {% if queued_jobs | length < cluster.queued %}
+                — showing first {{ queued_jobs | length }}
+            {% endif %}
+        </span>
+    </header>
+    <div class="cluster-queue-table-wrap">
+    <table class="cluster-queue-table">
+        <thead>
+            <tr>
+                <th style="width: 40px">#</th>
+                <th>File</th>
+                <th style="width: 90px">Source</th>
+                <th style="width: 80px">Size</th>
+                <th style="width: 130px">Assignment</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for q in queued_jobs %}
+        <tr>
+            <td class="dim">{{ "%02d"|format(loop.index) }}</td>
+            <td>
+                <div class="cluster-queue-title">{{ q.title }}</div>
+                {% if q.path %}<div class="dim cluster-queue-path">{{ q.path }}</div>{% endif %}
+            </td>
+            <td>
+                {% if q.source_codec %}<span class="kbd">{{ q.source_codec }}</span>{% else %}<span class="dim">—</span>{% endif %}
+            </td>
+            <td class="dim">
+                {% if q.size_gb %}{{ "%.2f"|format(q.size_gb) }} GB{% else %}—{% endif %}
+            </td>
+            <td>
+                {% if q.assignment.kind == "claimed" %}
+                <span class="kbd">{{ q.assignment.label }}</span>
+                {% else %}
+                <span class="dim">auto</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</section>
+{% endif %}
+
 {% endif %}

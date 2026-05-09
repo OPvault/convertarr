@@ -1,4 +1,5 @@
-{# Sticky footer shown while bulk-select is active. Expects {{ scope }}. #}
+{# Sticky footer shown while bulk-select is active. Expects {{ scope }} +
+   {{ workflows }} (list of {id, name, priority}, may be empty). #}
 <div class="bulk-footer" data-bulk-footer="{{ scope }}" hidden>
     <div class="bulk-footer-info">
         <span class="bulk-count">0</span> selected
@@ -6,7 +7,21 @@
     <div class="bulk-footer-actions">
         <button type="button" class="ghost" data-bulk-action="select-all">Select all</button>
         <button type="button" class="ghost" data-bulk-action="clear">Clear</button>
+        {% if workflows and (workflows | length) > 1 %}
+        <select class="ghost" data-bulk-workflow-picker title="Workflow to apply" style="padding: 0.4rem 0.6rem">
+            {% for w in workflows %}
+            <option value="{{ w.id }}">{{ w.name }} (P{{ w.priority }})</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        {% if workflows %}
         <button type="button" data-bulk-action="convert">Convert</button>
+        {% else %}
+        <button type="button" data-bulk-action="convert-blocked"
+                onclick="convertarrToast('No workflows yet — create one to enable conversion.',
+                                          {type: 'warning',
+                                           action: {label: 'Set up workflows →', href: '/settings/workflows'}})">Convert</button>
+        {% endif %}
         <button type="button" class="ghost" data-bulk-action="cancel">Cancel</button>
     </div>
 </div>

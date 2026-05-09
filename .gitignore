@@ -6,7 +6,11 @@ venv/
 .env
 data/
 output/
+config/
+test-db/
 .pytest_cache/
 *.log
 tests/
 .pytest_cache/
+pull-db.sh
+sync.sh

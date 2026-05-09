@@ -1,0 +1,44 @@
+# Sample Compose file. Copy and adapt for your setup.
+#
+#   docker compose up -d
+#
+# The image bundles ffmpeg with libx265 (CPU) plus VAAPI / NVENC support;
+# enable the device passthrough that matches your hardware below.
+
+services:
+  convertarr:
+    image: ghcr.io/opvault/convertarr:latest
+    container_name: convertarr
+    restart: unless-stopped
+    ports:
+      - "6565:6565"
+    volumes:
+      # Persistent app state: SQLite DB, logs, runtime settings.
+      - ./config:/config
+      # Bind-mount your library at the SAME path Sonarr/Radarr use, so the
+      # paths Convertarr receives from *arr resolve without translation.
+      # Adjust both sides to match your environment.
+      - /path/to/media:/path/to/media
+
+    # ---- Hardware acceleration (uncomment ONE block) ----
+
+    # Intel / AMD VAAPI:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "video"      # may need to be a numeric GID on some distros (e.g. "44")
+    #   - "render"     # ditto (often "109" on Debian/Ubuntu)
+
+    # NVIDIA NVENC (requires nvidia-container-toolkit on the host):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu, video]
+
+    # ---- Optional overrides ----
+    # environment:
+    #   # Force a specific encoder if auto-detect picks the wrong one.
+    #   CONVERTARR_ENCODER_OVERRIDE: hevc_vaapi

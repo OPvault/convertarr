@@ -158,7 +158,12 @@ async function convertarrSaveFilter(event, scope) {
         op:    row.querySelector(".clause-op").value,
         value: row.querySelector(".clause-value").value,
     }));
-    const r = await fetch("/api/filters", {
+    // editingId is set by convertarrShowFilterEditor when the user opened
+    // an existing row; empty string means "new filter".
+    const form = document.getElementById("filter-editor-form-" + scope);
+    const editingId = form.dataset.editingId || "";
+    const url = editingId ? `/api/filters/${editingId}` : "/api/filters";
+    const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scope, name, clauses }),
@@ -169,7 +174,7 @@ async function convertarrSaveFilter(event, scope) {
     }
     const saved = await r.json();
     document.getElementById("filter-editor-" + scope).close();
-    // Switch to the newly-saved filter
+    // Switch to the saved filter (works for both new and edited).
     window.location.search = "?filter=custom-" + saved.id;
     return false;
 }

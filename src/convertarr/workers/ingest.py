@@ -8,13 +8,32 @@ from sqlalchemy import select
 from ..arr.paths import Mapping, translate
 from ..arr.radarr import RadarrClient
 from ..arr.sonarr import SonarrClient
-from ..config import settings
+from ..config import settings as app_settings
 from ..db import session_scope
 from ..models import ArrInstance, ArrKind, Job, JobState, MediaFile, PathMapping
 from ..probe.ffprobe import ffprobe
 from ..probe.policy import evaluate
+from ..workflows import load_active_workflows, pick_workflow, pick_workflow_by_id
 
 log = logging.getLogger(__name__)
+
+
+def _episode_number_map(episodes: list[dict]) -> dict[int, int]:
+    """Build `episodeFileId -> episodeNumber`. Sonarr's `/episodefile`
+    endpoint exposes `seasonNumber` but not `episodeNumber`; the per-episode
+    join lives on `/episode`. Multi-episode files (rare) collapse to the
+    lowest episode number — good enough for a dashboard label.
+    """
+    out: dict[int, int] = {}
+    for ep in episodes or []:
+        ef_id = ep.get("episodeFileId")
+        ep_no = ep.get("episodeNumber")
+        if not ef_id or ep_no is None:
+            continue
+        existing = out.get(ef_id)
+        if existing is None or ep_no < existing:
+            out[ef_id] = ep_no
+    return out
 
 
 async def _ingest_path(
@@ -24,6 +43,9 @@ async def _ingest_path(
     arr_entity_id: int,
     arr_entity_title: str,
     mappings: list[Mapping],
+    workflow_id: int | None = None,
+    season_number: int | None = None,
+    episode_number: int | None = None,
 ) -> int:
     """ffprobe the file, evaluate policy, upsert MediaFile, queue Job if needed.
 
@@ -32,8 +54,20 @@ async def _ingest_path(
     on its own filesystem. The translated (local) path is what we persist and use
     for ffmpeg input.
 
+    `workflow_id` lets the rescan UI pin the operation to a specific user-chosen
+    workflow (still respecting that workflow's conditions). When None, we walk
+    every enabled workflow in priority order. Either way, if no workflow ends
+    up matching, the file is recorded but no Job is queued — workflows are
+    the only path to a conversion.
+
     Returns the job id (or 0 if no conversion needed).
     """
+    # Remember the *arr-relative path BEFORE host translation. Remote
+    # workers receive this verbatim and apply their own arr PathMapping
+    # rows to derive their local view — no need for a separate node-level
+    # mapping table. The host's local path (`local_path`) is what we'll
+    # use for ffmpeg here on the host's own filesystem.
+    arr_original_path = path
     local_path = translate(path, mappings)
     if local_path != path:
         log.info("path translated: %s -> %s", path, local_path)
@@ -45,7 +79,11 @@ async def _ingest_path(
         log.warning("ffprobe failed for %s: %s", path, e)
         return 0
 
-    plan = evaluate(probe, settings.policy)
+    if workflow_id is not None:
+        workflow_match = pick_workflow_by_id(probe, workflow_id, path=path)
+    else:
+        workflow_match = pick_workflow(probe, load_active_workflows(), path=path)
+    plan = evaluate(probe, app_settings.policy, workflow=workflow_match)
     fmt = probe.get("format", {}) or {}
     duration = float(fmt["duration"]) if fmt.get("duration") else None
     size_bytes = int(fmt["size"]) if fmt.get("size") else None
@@ -55,10 +93,14 @@ async def _ingest_path(
         if mf is None:
             mf = MediaFile(path=path)
             s.add(mf)
+        mf.arr_original_path = arr_original_path
         mf.arr_instance_id = instance.id
         mf.arr_kind = instance.kind
         mf.arr_entity_id = arr_entity_id
         mf.arr_entity_title = arr_entity_title
+        if instance.kind == ArrKind.sonarr:
+            mf.season_number = season_number
+            mf.episode_number = episode_number
         mf.size_bytes = size_bytes
         mf.duration_seconds = duration
         mf.probe_json = probe
@@ -86,7 +128,8 @@ async def _ingest_path(
         return job.id
 
 
-async def rescan_sonarr_series(instance_id: int, series_id: int) -> dict:
+async def rescan_sonarr_series(instance_id: int, series_id: int,
+                                workflow_id: int | None = None) -> dict:
     with session_scope() as s:
         inst = s.get(ArrInstance, instance_id)
         if inst is None or inst.kind != ArrKind.sonarr:
@@ -100,6 +143,7 @@ async def rescan_sonarr_series(instance_id: int, series_id: int) -> dict:
     series = await sonarr.get_series(series_id)
     title = series.get("title", f"series {series_id}")
     files = await sonarr.episode_files(series_id)
+    ep_no_by_file = _episode_number_map(await sonarr.episodes(series_id))
 
     queued = 0
     skipped = 0
@@ -115,6 +159,9 @@ async def rescan_sonarr_series(instance_id: int, series_id: int) -> dict:
                 arr_entity_id=series_id,
                 arr_entity_title=title,
                 mappings=mappings,
+                workflow_id=workflow_id,
+                season_number=f.get("seasonNumber"),
+                episode_number=ep_no_by_file.get(f.get("id")),
             )
             if job_id:
                 queued += 1
@@ -127,7 +174,8 @@ async def rescan_sonarr_series(instance_id: int, series_id: int) -> dict:
     return {"series_id": series_id, "title": title, "queued": queued, "skipped": skipped, "failed": failed}
 
 
-async def rescan_sonarr_season(instance_id: int, series_id: int, season_number: int) -> dict:
+async def rescan_sonarr_season(instance_id: int, series_id: int, season_number: int,
+                                workflow_id: int | None = None) -> dict:
     """Scan every episode file in a single season. Same shape as the whole-series
     rescan but pre-filters episodefile rows by `seasonNumber`."""
     with session_scope() as s:
@@ -142,6 +190,7 @@ async def rescan_sonarr_season(instance_id: int, series_id: int, season_number: 
     series = await sonarr.get_series(series_id)
     title = series.get("title", f"series {series_id}")
     files = await sonarr.episode_files(series_id)
+    ep_no_by_file = _episode_number_map(await sonarr.episodes(series_id))
 
     queued = 0
     skipped = 0
@@ -159,6 +208,9 @@ async def rescan_sonarr_season(instance_id: int, series_id: int, season_number: 
                 arr_entity_id=series_id,
                 arr_entity_title=title,
                 mappings=mappings,
+                workflow_id=workflow_id,
+                season_number=f.get("seasonNumber"),
+                episode_number=ep_no_by_file.get(f.get("id")),
             )
             if job_id:
                 queued += 1
@@ -178,7 +230,8 @@ async def rescan_sonarr_season(instance_id: int, series_id: int, season_number: 
     }
 
 
-async def rescan_sonarr_episode_file(instance_id: int, episode_file_id: int) -> dict:
+async def rescan_sonarr_episode_file(instance_id: int, episode_file_id: int,
+                                      workflow_id: int | None = None) -> dict:
     """Scan a single Sonarr episode file. Useful for the per-episode Rescan button."""
     with session_scope() as s:
         inst = s.get(ArrInstance, instance_id)
@@ -196,10 +249,17 @@ async def rescan_sonarr_episode_file(instance_id: int, episode_file_id: int) -> 
 
     series_id = f.get("seriesId")
     title = f"series {series_id}"
+    episode_number: int | None = None
     if series_id:
         try:
             series = await sonarr.get_series(series_id)
             title = series.get("title", title)
+        except Exception:
+            pass
+        try:
+            episode_number = _episode_number_map(
+                await sonarr.episodes(series_id)
+            ).get(episode_file_id)
         except Exception:
             pass
 
@@ -210,6 +270,9 @@ async def rescan_sonarr_episode_file(instance_id: int, episode_file_id: int) -> 
             arr_entity_id=series_id or 0,
             arr_entity_title=title,
             mappings=mappings,
+            workflow_id=workflow_id,
+            season_number=f.get("seasonNumber"),
+            episode_number=episode_number,
         )
     except Exception as e:
         log.exception("ingest failed for %s", path)
@@ -223,7 +286,8 @@ async def rescan_sonarr_episode_file(instance_id: int, episode_file_id: int) -> 
     }
 
 
-async def rescan_radarr_movie(instance_id: int, movie_id: int) -> dict:
+async def rescan_radarr_movie(instance_id: int, movie_id: int,
+                               workflow_id: int | None = None) -> dict:
     with session_scope() as s:
         inst = s.get(ArrInstance, instance_id)
         if inst is None or inst.kind != ArrKind.radarr:
@@ -247,6 +311,7 @@ async def rescan_radarr_movie(instance_id: int, movie_id: int) -> dict:
         arr_entity_id=movie_id,
         arr_entity_title=title,
         mappings=mappings,
+        workflow_id=workflow_id,
     )
     return {
         "movie_id": movie_id,

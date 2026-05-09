@@ -1,9 +1,117 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Dashboard</h1>
+<div class="dash-header">
+    <h1 style="margin: 0">Dashboard</h1>
+    <a href="/queue" class="dash-panel-link" style="font-size: 0.9rem">Open queue →</a>
+</div>
 
-<div id="dashboard-running" hx-get="/dashboard/running" hx-trigger="load, every 2s" hx-swap="innerHTML">
+{# Live cluster snapshot — polled every 2s. Owns its own header so the poll
+   repaints don't blink the rest of the page. Shape: cluster summary +
+   per-node cards + cluster queue. #}
+<div id="dashboard-now" hx-get="/dashboard/running" hx-trigger="load, every 2s" hx-swap="innerHTML">
     {% include "_dashboard_running.html" %}
+</div>
+
+{# Static-on-load: 24h pulse strip + recent activity + setup health. #}
+<div class="dash-pulse">
+    <div class="dash-stat">
+        <div class="dash-stat-value">{{ done_24h }}</div>
+        <div class="dash-stat-label">completed · 24h</div>
+    </div>
+    <div class="dash-stat">
+        <div class="dash-stat-value">{{ avg_24h_str }}</div>
+        <div class="dash-stat-label">avg encode time · 24h</div>
+    </div>
+    <div class="dash-stat {% if failed_24h %}dash-stat-warn{% endif %}">
+        <div class="dash-stat-value">{{ failed_24h }}</div>
+        <div class="dash-stat-label">failed · 24h</div>
+    </div>
+    <div class="dash-stat">
+        <div class="dash-stat-value">{{ workflow_count }}</div>
+        <div class="dash-stat-label">active workflow{{ "" if workflow_count == 1 else "s" }}</div>
+    </div>
+</div>
+
+<div class="dash-grid">
+    <section class="dash-panel">
+        <header class="dash-panel-header">
+            <h2 style="margin: 0">Recent activity</h2>
+            <a href="/history" class="dash-panel-link">View all →</a>
+        </header>
+        {% if recent %}
+        <ul class="dash-activity">
+            {% for r in recent %}
+            <li class="dash-activity-row dash-activity-{{ r.state }}">
+                <span class="dash-activity-icon" aria-hidden="true">
+                    {% if r.state == "done" %}✓{% elif r.state == "failed" %}!{% else %}↷{% endif %}
+                </span>
+                <div class="dash-activity-body">
+                    <div class="dash-activity-title">{{ r.title }}</div>
+                    <div class="dash-activity-meta">
+                        {% if r.kind == "sonarr" %}<span class="dim">episode</span>
+                        {% elif r.kind == "radarr" %}<span class="dim">movie</span>{% endif %}
+                        <span class="dim">·</span>
+                        <span>{{ r.duration_str }}</span>
+                        {% if r.encoder %}
+                        <span class="dim">·</span><span class="kbd">{{ r.encoder }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="dash-activity-time">{{ r.ago_str }}</div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="dash-empty">
+            <span class="dash-empty-icon">⌚</span>
+            <span>No completed jobs yet — they'll show up here.</span>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="dash-panel">
+        <header class="dash-panel-header">
+            <h2 style="margin: 0">System</h2>
+        </header>
+        <ul class="dash-health">
+            <li>
+                <span class="dash-health-icon dash-health-{% if sonarr_count %}ok{% else %}warn{% endif %}">
+                    {% if sonarr_count %}✓{% else %}!{% endif %}
+                </span>
+                <div class="dash-health-body">
+                    <strong>Sonarr</strong>
+                    <span class="dim">
+                        {% if sonarr_count %}{{ sonarr_count }} instance{{ "" if sonarr_count == 1 else "s" }} connected
+                        {% else %}<a href="/settings/sonarr">Add an instance</a>{% endif %}
+                    </span>
+                </div>
+            </li>
+            <li>
+                <span class="dash-health-icon dash-health-{% if radarr_count %}ok{% else %}warn{% endif %}">
+                    {% if radarr_count %}✓{% else %}!{% endif %}
+                </span>
+                <div class="dash-health-body">
+                    <strong>Radarr</strong>
+                    <span class="dim">
+                        {% if radarr_count %}{{ radarr_count }} instance{{ "" if radarr_count == 1 else "s" }} connected
+                        {% else %}<a href="/settings/radarr">Add an instance</a>{% endif %}
+                    </span>
+                </div>
+            </li>
+            <li>
+                <span class="dash-health-icon dash-health-{% if workflow_count %}ok{% else %}warn{% endif %}">
+                    {% if workflow_count %}✓{% else %}!{% endif %}
+                </span>
+                <div class="dash-health-body">
+                    <strong>Workflows</strong>
+                    <span class="dim">
+                        {% if workflow_count %}{{ workflow_count }} active
+                        {% else %}<a href="/settings/workflows">Set one up</a> to enable rescan{% endif %}
+                    </span>
+                </div>
+            </li>
+        </ul>
+    </section>
 </div>
 {% endblock %}

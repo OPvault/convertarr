@@ -1,0 +1,45 @@
+# Keep the build context lean.
+
+# VCS
+.git
+.gitignore
+.github
+
+# Local virtualenvs / caches
+.venv
+venv
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Runtime artefacts (never want host data inside the image)
+data
+output
+test-db
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+
+# Tooling that has no business inside the image
+node_modules
+*.swp
+*.swo
+
+# Project housekeeping that doesn't need to ship
+TODO
+sync.sh
+pull-db.sh
+run.sh
+docker-compose.yml
+.dockerignore
+Dockerfile

@@ -5,17 +5,100 @@
     <a class="tool-btn" href="/series" title="Back to Series">
         <span class="icon">←</span><span>Back</span>
     </a>
-    <button class="tool-btn"
-            hx-post="/series/{{ series.instance_id }}/{{ series.id }}/rescan"
-            hx-swap="none"
-            hx-on::after-request="
-                const r = JSON.parse(event.detail.xhr.responseText);
-                document.getElementById('rescan-result').textContent =
-                    r.queued + ' queued · ' + r.skipped + ' ok' + (r.failed ? ' · ' + r.failed + ' failed' : '');">
-        <span class="icon">↻</span><span>Rescan all</span>
-    </button>
+    {% if workflows %}
+        {% if workflows | length > 1 %}
+        <select id="series-workflow-picker" class="tool-btn" title="Workflow to apply"
+                style="padding: 0.4rem 0.6rem">
+            {% for w in workflows %}
+            <option value="{{ w.id }}">{{ w.name }} (P{{ w.priority }})</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        <button class="tool-btn" data-rescan-target="series-all"
+                onclick="convertarrRescan(this, '/series/{{ series.instance_id }}/{{ series.id }}/rescan',
+                                          {{ (workflows | length > 1) | tojson }})">
+            <span class="icon">↻</span><span>Rescan all</span>
+        </button>
+    {% else %}
+        <button class="tool-btn" onclick="convertarrNoWorkflowsToast()">
+            <span class="icon">↻</span><span>Rescan all</span>
+        </button>
+    {% endif %}
     <span id="rescan-result" class="muted" style="margin-left: 0.5rem; align-self: center"></span>
 </div>
+<script>
+// Pull the chosen workflow_id (when the dropdown is present) and append it
+// to the rescan URL, then post + render the result. Single helper for every
+// rescan flavor on this page (whole series, season, episode).
+// Surface a helpful toast when the host returns 409 worker_mode — the
+// rescan was refused because this Convertarr is paired as a worker.
+async function _convertarrHandleWorkerMode(r) {
+    if (r.status !== 409) return false;
+    let body = {};
+    try { body = await r.json(); } catch (e) {}
+    const detail = body.detail || {};
+    if (detail.code !== "worker_mode") return false;
+    const hostUrl = detail.host_url || "";
+    convertarrToast(
+        detail.message || "Worker mode — rescan from the host's UI instead.",
+        {
+            type: "warning",
+            action: hostUrl ? { label: "Open host →", href: hostUrl } : undefined,
+        },
+    );
+    return true;
+}
+
+async function convertarrRescan(btn, url, hasPicker) {
+    const picker = hasPicker ? document.getElementById("series-workflow-picker") : null;
+    if (picker && picker.value) {
+        url += (url.includes("?") ? "&" : "?") + "workflow_id=" + encodeURIComponent(picker.value);
+    }
+    btn.disabled = true;
+    try {
+        const r = await fetch(url, { method: "POST" });
+        if (await _convertarrHandleWorkerMode(r)) return;
+        const data = await r.json();
+        const target = btn.dataset.rescanTarget;
+        const msg = (data.queued || 0) + ' queued · ' + (data.skipped || 0) + ' ok'
+            + (data.failed ? ' · ' + data.failed + ' failed' : '');
+        if (target === "series-all") {
+            document.getElementById("rescan-result").textContent = msg;
+        } else if (btn.dataset.rescanReplace === "self") {
+            const cls = data.queued ? 'queued' : (data.failed ? 'failed' : 'done');
+            btn.outerHTML = '<span class="badge ' + cls + '">' + msg + '</span>';
+        }
+    } finally {
+        if (btn.parentNode) btn.disabled = false;
+    }
+}
+async function convertarrRescanEpisode(btn, url, hasPicker) {
+    const picker = hasPicker ? document.getElementById("series-workflow-picker") : null;
+    if (picker && picker.value) {
+        url += (url.includes("?") ? "&" : "?") + "workflow_id=" + encodeURIComponent(picker.value);
+    }
+    btn.disabled = true;
+    try {
+        const r = await fetch(url, { method: "POST" });
+        if (await _convertarrHandleWorkerMode(r)) {
+            btn.disabled = false;
+            return;
+        }
+        const data = await r.json();
+        const cls = data.queued ? 'queued' : (data.failed ? 'failed' : 'done');
+        const label = data.queued ? ('queued #' + data.job_id) : (data.failed ? 'failed' : 'ok');
+        btn.outerHTML = '<span class="badge ' + cls + '">' + label + '</span>';
+    } catch (e) {
+        btn.disabled = false;
+    }
+}
+function convertarrNoWorkflowsToast() {
+    convertarrToast("No workflows yet — create one to enable rescan.", {
+        type: "warning",
+        action: { label: "Set up workflows →", href: "/settings/workflows" },
+    });
+}
+</script>
 {% endblock %}
 
 {% block content %}
@@ -47,17 +130,15 @@
 {% for season_num, episodes in series.seasons %}
 <div class="season-header">
     <h2 style="margin: 0">{{ "Specials" if season_num == 0 else "Season " ~ season_num }}</h2>
-    <button class="ghost"
-            hx-post="/series/{{ series.instance_id }}/{{ series.id }}/season/{{ season_num }}/rescan"
-            hx-swap="outerHTML"
-            hx-on::after-request="
-                const r = JSON.parse(event.detail.xhr.responseText);
-                this.outerHTML = '<span class=&quot;badge ' +
-                    (r.queued ? 'queued' : (r.failed ? 'failed' : 'done')) + '&quot;>' +
-                    r.queued + ' queued · ' + r.skipped + ' ok' +
-                    (r.failed ? ' · ' + r.failed + ' failed' : '') + '</span>';">
+    {% if workflows %}
+    <button class="ghost" data-rescan-replace="self"
+            onclick="convertarrRescan(this, '/series/{{ series.instance_id }}/{{ series.id }}/season/{{ season_num }}/rescan',
+                                      {{ (workflows | length > 1) | tojson }})">
         Rescan season
     </button>
+    {% else %}
+    <button class="ghost" onclick="convertarrNoWorkflowsToast()">Rescan season</button>
+    {% endif %}
 </div>
 <table>
     <thead>
@@ -91,19 +172,18 @@
             </td>
             <td>
                 {% if e.has_file and e.episode_file_id %}
-                <button
-                    hx-post="/series/{{ series.instance_id }}/episodefile/{{ e.episode_file_id }}/rescan"
-                    hx-swap="outerHTML"
-                    hx-on::after-request="
-                        const r = JSON.parse(event.detail.xhr.responseText);
-                        this.outerHTML = '<span class=&quot;badge ' +
-                            (r.queued ? 'queued' : (r.failed ? 'failed' : 'done')) +
-                            '&quot;>' +
-                            (r.queued ? 'queued #' + r.job_id : (r.failed ? 'failed' : 'ok')) +
-                            '</span>';"
-                    style="padding: 0.3rem 0.7rem; font-size: 0.78rem">
-                    Rescan
-                </button>
+                    {% if workflows %}
+                    <button style="padding: 0.3rem 0.7rem; font-size: 0.78rem"
+                            onclick="convertarrRescanEpisode(this, '/series/{{ series.instance_id }}/episodefile/{{ e.episode_file_id }}/rescan',
+                                                              {{ (workflows | length > 1) | tojson }})">
+                        Rescan
+                    </button>
+                    {% else %}
+                    <button style="padding: 0.3rem 0.7rem; font-size: 0.78rem"
+                            onclick="convertarrNoWorkflowsToast()">
+                        Rescan
+                    </button>
+                    {% endif %}
                 {% else %}
                 <span class="dim">—</span>
                 {% endif %}

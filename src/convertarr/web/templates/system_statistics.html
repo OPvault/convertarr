@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Statistics</h1>
+
+<h2>Conversions</h2>
+<div class="stats-kpis">
+    <div class="card stats-kpi">
+        <div class="stats-kpi-value">{{ conversion.done }}</div>
+        <div class="stats-kpi-label">completed</div>
+    </div>
+    <div class="card stats-kpi">
+        <div class="stats-kpi-value">{{ conversion.avg_sonarr_str }}</div>
+        <div class="stats-kpi-label">avg / episode
+            <span class="dim">({{ conversion.sonarr_sample }} sample{{ "s" if conversion.sonarr_sample != 1 else "" }})</span>
+        </div>
+    </div>
+    <div class="card stats-kpi">
+        <div class="stats-kpi-value">{{ conversion.avg_radarr_str }}</div>
+        <div class="stats-kpi-label">avg / movie
+            <span class="dim">({{ conversion.radarr_sample }} sample{{ "s" if conversion.radarr_sample != 1 else "" }})</span>
+        </div>
+    </div>
+    <div class="card stats-kpi">
+        <div class="stats-kpi-value">{{ conversion.total_runtime_str }}</div>
+        <div class="stats-kpi-label">total encode time</div>
+    </div>
+</div>
+
+<div class="stats-kpis">
+    <div class="card stats-kpi small">
+        <div class="stats-kpi-value">{{ conversion.queued }}</div>
+        <div class="stats-kpi-label">queued</div>
+    </div>
+    <div class="card stats-kpi small">
+        <div class="stats-kpi-value">{{ conversion.running }}</div>
+        <div class="stats-kpi-label">running</div>
+    </div>
+    <div class="card stats-kpi small">
+        <div class="stats-kpi-value">{{ conversion.failed }}</div>
+        <div class="stats-kpi-label">failed</div>
+    </div>
+    <div class="card stats-kpi small">
+        <div class="stats-kpi-value">{{ conversion.skipped }}</div>
+        <div class="stats-kpi-label">skipped</div>
+    </div>
+</div>
+
+{% if conversion.encoders %}
+<h2>Encoder usage</h2>
+<div class="card">
+    {% for row in conversion.encoders %}
+    <div class="stats-bar-row">
+        <div class="stats-bar-label">{{ row.label }}</div>
+        <div class="stats-bar"><div class="stats-bar-fill" style="width: {{ row.pct }}%"></div></div>
+        <div class="stats-bar-count">{{ row.count }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<h2>Library</h2>
+<div class="stats-kpis">
+    <div class="card stats-kpi small">
+        <div class="stats-kpi-value">{{ library.series_count }}</div>
+        <div class="stats-kpi-label">series indexed</div>
+    </div>
+    <div class="card stats-kpi small">
+        <div class="stats-kpi-value">{{ library.movie_count }}</div>
+        <div class="stats-kpi-label">movies indexed</div>
+    </div>
+    <div class="card stats-kpi small">
+        <div class="stats-kpi-value">{{ library.probed_files }}</div>
+        <div class="stats-kpi-label">files probed</div>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <section>
+        <h3>Video codecs</h3>
+        <div class="dim" style="font-size:0.8rem; margin-bottom:0.6rem">
+            Per indexed series/movie. An entry counts once per distinct codec it contains.
+        </div>
+        {% if library.codecs %}
+        <div class="card">
+            {% for row in library.codecs %}
+            <div class="stats-bar-row">
+                <div class="stats-bar-label">{{ row.label }}</div>
+                <div class="stats-bar"><div class="stats-bar-fill" style="width: {{ row.pct }}%"></div></div>
+                <div class="stats-bar-count">{{ row.count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><div class="empty-icon">▢</div>No codec data yet — wait for the indexer pass.</div>
+        {% endif %}
+    </section>
+
+    <section>
+        <h3>Containers</h3>
+        <div class="dim" style="font-size:0.8rem; margin-bottom:0.6rem">
+            File extensions across the indexed library.
+        </div>
+        {% if library.containers %}
+        <div class="card">
+            {% for row in library.containers %}
+            <div class="stats-bar-row">
+                <div class="stats-bar-label">.{{ row.label }}</div>
+                <div class="stats-bar"><div class="stats-bar-fill" style="width: {{ row.pct }}%"></div></div>
+                <div class="stats-bar-count">{{ row.count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><div class="empty-icon">▢</div>No container data yet.</div>
+        {% endif %}
+    </section>
+
+    <section>
+        <h3>Resolutions</h3>
+        <div class="dim" style="font-size:0.8rem; margin-bottom:0.6rem">
+            Pulled from ffprobe — only counts files Convertarr has scanned ({{ library.probed_files }} total).
+        </div>
+        {% if library.resolutions %}
+        <div class="card">
+            {% for row in library.resolutions %}
+            <div class="stats-bar-row">
+                <div class="stats-bar-label">{{ row.label }}</div>
+                <div class="stats-bar"><div class="stats-bar-fill" style="width: {{ row.pct }}%"></div></div>
+                <div class="stats-bar-count">{{ row.count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><div class="empty-icon">▢</div>No probed files yet — rescan a series or movie.</div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -6,18 +6,74 @@
         <span class="icon">←</span><span>Back</span>
     </a>
     {% if movie.has_file %}
-    <button class="tool-btn"
-            hx-post="/movies/{{ movie.instance_id }}/{{ movie.id }}/rescan"
-            hx-swap="none"
-            hx-on::after-request="
-                const r = JSON.parse(event.detail.xhr.responseText);
-                document.getElementById('rescan-result').textContent =
-                    r.queued ? ('queued #' + (r.queued ? '✓' : '')) : (r.skipped ? 'already in spec' : 'failed');">
-        <span class="icon">↻</span><span>Rescan</span>
-    </button>
+        {% if workflows %}
+            {% if workflows | length > 1 %}
+            <select id="movie-workflow-picker" class="tool-btn" title="Workflow to apply"
+                    style="padding: 0.4rem 0.6rem">
+                {% for w in workflows %}
+                <option value="{{ w.id }}">{{ w.name }} (P{{ w.priority }})</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <button class="tool-btn"
+                    onclick="convertarrRescanMovie(this, '/movies/{{ movie.instance_id }}/{{ movie.id }}/rescan',
+                                                   {{ (workflows | length > 1) | tojson }})">
+                <span class="icon">↻</span><span>Rescan</span>
+            </button>
+        {% else %}
+            <button class="tool-btn" onclick="convertarrNoWorkflowsToast()">
+                <span class="icon">↻</span><span>Rescan</span>
+            </button>
+        {% endif %}
     <span id="rescan-result" class="muted" style="margin-left: 0.5rem; align-self: center"></span>
     {% endif %}
 </div>
+<script>
+async function convertarrRescanMovie(btn, url, hasPicker) {
+    const picker = hasPicker ? document.getElementById("movie-workflow-picker") : null;
+    if (picker && picker.value) {
+        url += (url.includes("?") ? "&" : "?") + "workflow_id=" + encodeURIComponent(picker.value);
+    }
+    btn.disabled = true;
+    try {
+        const r = await fetch(url, { method: "POST" });
+        // Worker-mode 409 — refused because this Convertarr is paired as a
+        // worker. Surface a toast pointing at the host's UI instead of
+        // silently writing a misleading status into the result span.
+        if (r.status === 409) {
+            let body = {};
+            try { body = await r.json(); } catch (e) {}
+            const detail = body.detail || {};
+            if (detail.code === "worker_mode") {
+                convertarrToast(
+                    detail.message || "Worker mode — rescan from the host's UI instead.",
+                    {
+                        type: "warning",
+                        action: detail.host_url
+                            ? { label: "Open host →", href: detail.host_url }
+                            : undefined,
+                    },
+                );
+                return;
+            }
+        }
+        const data = await r.json();
+        const out = document.getElementById("rescan-result");
+        if (data.queued) out.textContent = "queued #✓";
+        else if (data.skipped) out.textContent = "no workflow matched — nothing to do";
+        else if (data.failed) out.textContent = "failed";
+        else out.textContent = "no file";
+    } finally {
+        btn.disabled = false;
+    }
+}
+function convertarrNoWorkflowsToast() {
+    convertarrToast("No workflows yet — create one to enable rescan.", {
+        type: "warning",
+        action: { label: "Set up workflows →", href: "/settings/workflows" },
+    });
+}
+</script>
 {% endblock %}
 
 {% block content %}

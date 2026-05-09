@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import sys
 from collections import deque
 from contextlib import asynccontextmanager
@@ -17,13 +16,21 @@ from .config import settings
 from .db import init_db
 from .web.auth import AuthRedirect
 from .web.auth_routes import router as auth_router
+from .web.node_routes import router as node_router
+from .web.pairing_routes import router as pairing_router
 from .web.routes import router
 from .web.system_routes import router as system_router
-from .workers.queue import worker_loop
+from .workers.heartbeat import watchdog_loop
+from .workers.local_node import ensure_local_node
+from .workers.supervisor import supervisor_loop
 
 
 # In-memory ring buffer of recent log lines, surfaced by the System → Logs page.
 LOG_RING: deque[str] = deque(maxlen=2000)
+
+# Process start time, used by /system/about for the Uptime field.
+import datetime as _dt
+STARTED_AT: _dt.datetime = _dt.datetime.now(_dt.timezone.utc)
 
 
 class _RingHandler(logging.Handler):
@@ -46,7 +53,6 @@ def _configure_logging() -> None:
 
     root = logging.getLogger()
     root.setLevel(logging.INFO)
-    # Reset any handlers from a prior init (matters for the os.execv re-run).
     root.handlers.clear()
 
     stream = logging.StreamHandler()
@@ -76,18 +82,32 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning(
             "startup cleanup: removed %d orphaned converter output(s)", removed,
         )
+    # Upsert the local Node row before the worker loops start. Existing rows
+    # have their encoder fields refreshed; the row is the source of truth for
+    # the host's per-node max_concurrent_jobs from this point on.
+    ensure_local_node()
+
+    from .workers.indexer import indexer_loop
     stop = asyncio.Event()
-    task = asyncio.create_task(worker_loop(stop), name="convertarr-worker")
+    # The supervisor decides whether to run host-mode (local worker loop) or
+    # worker-mode (remote loop connected to a paired host). It also reacts
+    # to live pairing/unpairing without a process restart.
+    task = asyncio.create_task(supervisor_loop(stop), name="convertarr-supervisor")
+    indexer_task = asyncio.create_task(indexer_loop(stop), name="convertarr-indexer")
+    watchdog_task = asyncio.create_task(watchdog_loop(stop), name="convertarr-watchdog")
     app.state.worker_stop = stop
     app.state.worker_task = task
+    app.state.indexer_task = indexer_task
+    app.state.watchdog_task = watchdog_task
     try:
         yield
     finally:
         stop.set()
-        try:
-            await asyncio.wait_for(task, timeout=5)
-        except asyncio.TimeoutError:
-            task.cancel()
+        for t in (task, indexer_task, watchdog_task):
+            try:
+                await asyncio.wait_for(t, timeout=10)
+            except asyncio.TimeoutError:
+                t.cancel()
 
 
 app = FastAPI(title="Convertarr", lifespan=lifespan)
@@ -104,67 +124,28 @@ app.include_router(auth_router)
 # Protected routes — require_auth gate is on the router itself.
 app.include_router(router)
 app.include_router(system_router)
+# Worker-node API (consumed by paired worker instances); same X-Api-Key auth.
+app.include_router(node_router)
+# Pairing API — invoked by another Convertarr (the host) to enslave this
+# instance as a worker. Auth is the LOCAL api_key (the one the operator
+# typed into the host's pair form), enforced via the same require_auth.
+app.include_router(pairing_router)
 
 
-# Set by cli() so schedule_restart() can tell the difference between a
-# "convertarr"-script launch (re-exec works) and a bare-uvicorn dev launch
-# (re-exec either crashes on a stale socket or no-ops because cli() is bypassed
-# and the new bind_address is never read).
-_LAUNCHED_VIA_CLI = False
-
-
-def schedule_restart(delay: float = 0.5) -> bool:
-    """Re-exec this process so DB-backed config (bind address, etc.) re-reads.
-
-    Returns True if a restart was scheduled, False if we declined because we're
-    not running under the `convertarr` cli (e.g. `uvicorn --reload` dev mode).
-    Only the `convertarr` entrypoint reads `bind_address` from the DB, so
-    re-execing anything else would either crash on a stale listening socket or
-    silently ignore the new value."""
-    log = logging.getLogger(__name__)
-
-    if not _LAUNCHED_VIA_CLI:
-        log.warning(
-            "bind_address change saved but not applied: not launched via the "
-            "`convertarr` script. Stop the current process and run `convertarr` "
-            "for the new address to take effect."
-        )
-        return False
-
-    async def _later() -> None:
-        await asyncio.sleep(delay)
-        log.warning("re-execing for config reload: %s %s", sys.argv[0], sys.argv[1:])
-        os.execv(sys.argv[0], sys.argv)
-
-    asyncio.create_task(_later())
-    return True
+HOST = "0.0.0.0"
+PORT = 6565
 
 
 def cli() -> None:
-    """Console-script entrypoint. Reads bind from the settings table so the UI
-    can change it (and `schedule_restart()` can pick up the new value).
+    """Console-script entrypoint. Always binds 0.0.0.0:6565 — Convertarr is
+    LAN-reachable by default, Sonarr/Radarr-style.
 
-    Pass `--reload` for dev mode (auto-restart on code changes). Note: in
-    `--reload` mode, schedule_restart's re-exec is unreliable because uvicorn's
-    reload-worker child holds the listening socket; the bind_address change is
-    still saved but you'll get a manual-restart prompt in the UI."""
-    global _LAUNCHED_VIA_CLI
-    _LAUNCHED_VIA_CLI = True
+    Pass `--reload` for dev mode (auto-restart on code changes)."""
     init_db()
-    from .web import runtime_settings as rs
-
-    bind = rs.get("bind_address", "0.0.0.0:8000")
-    host, _, port_s = bind.partition(":")
-    port = int(port_s or "8000")
     reload = "--reload" in sys.argv
 
-    if reload:
-        # Reload mode forks workers; our re-exec restart trick fights the
-        # watcher and ends up with "Address already in use". Disable it.
-        _LAUNCHED_VIA_CLI = False
-
     import uvicorn
-    kwargs: dict = {"host": host, "port": port, "reload": reload, "log_config": None}
+    kwargs: dict = {"host": HOST, "port": PORT, "reload": reload, "log_config": None}
     if reload:
         # Only watch source. Without this, every DB write (SQLite WAL) and every
         # log line (data/logs/convertarr.log) trips the reloader → reload loop.

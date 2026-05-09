@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ..config import Policy, settings
 from ..probe.policy import FilePlan, StreamPlan
-from .hwdetect import EncoderProfile
+from .hwdetect import EncoderProfile, encoder_for_codec
 
 
 def _audio_bitrate_k(channels: int | None, policy: Policy) -> int:
@@ -69,13 +69,16 @@ def _video_args(plan: StreamPlan, encoder: EncoderProfile, policy: Policy, *, fu
     return args
 
 
-def _audio_args(plan: StreamPlan, policy: Policy) -> list[str]:
+def _audio_args(plan: StreamPlan, policy: Policy, target_codec: str | None = None) -> list[str]:
     n = plan.type_index
     bitrate = _audio_bitrate_k(plan.channels, policy)
-    return [
-        f"-c:a:{n}", policy.audio_target.codec,
-        f"-b:a:{n}", f"{bitrate}k",
-    ]
+    codec = (target_codec or policy.audio_target.codec).lower()
+    args = [f"-c:a:{n}", codec]
+    # Lossless codecs (flac) ignore bitrate; everything else benefits from a
+    # per-channel bitrate so 5.1 doesn't get stomped at 128k stereo.
+    if codec not in {"flac", "alac", "copy"}:
+        args += [f"-b:a:{n}", f"{bitrate}k"]
+    return args
 
 
 CONVERTARR_SUFFIX = ".CONVERTARR"
@@ -131,8 +134,16 @@ def build_ffmpeg_args(
     output_path: str | Path,
     policy: Policy | None = None,
 ) -> list[str]:
-    """Construct the full ffmpeg argv for this file, given per-stream actions."""
+    """Construct the full ffmpeg argv for this file, given per-stream actions.
+
+    `encoder` is the host's auto-detected default. When `file_plan` carries a
+    workflow-driven target codec (e.g. "h264" instead of the default "hevc"),
+    we re-pick the encoder via `encoder_for_codec` so we land on the right
+    family-specific binary (h264_vaapi, libx264, etc.) without the caller
+    needing to know about workflows."""
     policy = policy or settings.policy
+    if file_plan.video_target_codec and file_plan.video_target_codec != "copy":
+        encoder = encoder_for_codec(file_plan.video_target_codec, base=encoder)
     args: list[str] = [settings.ffmpeg_bin, "-hide_banner", "-y"]
 
     has_video_reencode = any(
@@ -201,14 +212,15 @@ def build_ffmpeg_args(
         else:
             args += _video_args(s, encoder, policy, full_gpu=full_gpu)
 
-    # Audio streams.
+    # Audio streams. Use the plan's per-file target codec so workflow
+    # decisions ("convert DTS to EAC3") flow through.
     for s in file_plan.streams:
         if s.codec_type != "audio":
             continue
         if s.action == "copy":
             args += [f"-c:a:{s.type_index}", "copy"]
         else:
-            args += _audio_args(s, policy)
+            args += _audio_args(s, policy, target_codec=file_plan.audio_target_codec)
 
     # Preserve global metadata + chapters.
     args += ["-map_metadata", "0", "-map_chapters", "0"]
