@@ -98,7 +98,12 @@ def output_path_for(input_path: str | Path, policy: Policy | None = None) -> Pat
 
 _HW_DECODABLE_CODECS = {
     "vaapi": {"h264", "hevc", "av1", "vp9", "vp8", "mpeg2video", "mpeg4"},
-    "cuda":  {"h264", "hevc", "av1", "vp9", "vp8", "mpeg2video", "mpeg4", "vc1"},
+    # AV1 NVDEC needs an Ada Lovelace GPU (RTX 4060+). On Turing/Ampere it
+    # claims support but fails at runtime ("Your platform doesn't support
+    # hardware accelerated AV1 decoding."), producing zero frames and a
+    # silent encode failure. Conservative default: SW-decode AV1 then upload
+    # to NVENC. Older codecs are universally NVDEC-supported.
+    "cuda":  {"h264", "hevc", "vp9", "vp8", "mpeg2video", "mpeg4", "vc1"},
     "qsv":   {"h264", "hevc", "av1", "vp9", "mpeg2video"},
 }
 
