@@ -1966,6 +1966,7 @@ async def delete_node(node_id: str) -> RedirectResponse:
 
 @router.post("/settings/nodes/pair")
 async def pair_node(
+    request: Request,
     address: str = Form(...),
     worker_api_key: str = Form(...),
     name: str = Form(""),
@@ -2001,14 +2002,27 @@ async def pair_node(
     if not own_api_key:
         raise HTTPException(500, "host has no api_key set; configure one first")
 
-    # We don't know our own externally-visible IP from inside the request
-    # without a hint, so use a relative URL the worker can resolve via its
-    # own perspective. Use 0.0.0.0 → the worker probably can't reach that;
-    # better: leave the host_url empty and let the worker fill in its
-    # connecting address. Practical workaround: ask the operator to confirm
-    # the host_url via the form too, or auto-derive from the request's Host.
-    # For simplicity, derive from the bind config.
-    own_url = "http://" + (request_host_for_pairing() or "convertarr") + ":6565"
+    # The URL the worker should call back on. The operator's browser is by
+    # definition able to reach this host at the URL in their address bar
+    # (otherwise they wouldn't have loaded the page) — so the request's Host
+    # header is almost always the right answer. This matters when the host
+    # is in Docker: socket-derived "primary IP" gives the bridge address
+    # (e.g. 172.28.0.2), which is unreachable from a worker on the LAN.
+    # Order of preference:
+    #   1. CONVERTARR_HOST_URL_HINT env var (operator override).
+    #   2. The request's Host header (covers the Docker case).
+    #   3. socket-trick fallback for headless / no-Host scenarios.
+    import os
+    hint = os.environ.get("CONVERTARR_HOST_URL_HINT")
+    if hint:
+        own_url = hint if hint.startswith(("http://", "https://")) else f"http://{hint}"
+        own_url = own_url.rstrip("/")
+    elif request.url.hostname:
+        port = request.url.port
+        netloc = request.url.hostname + (f":{port}" if port else "")
+        own_url = f"{request.url.scheme}://{netloc}"
+    else:
+        own_url = "http://" + (request_host_for_pairing() or "convertarr") + ":6565"
 
     # Send accept
     pair_url = f"{addr}/api/v1/pairing/accept"
