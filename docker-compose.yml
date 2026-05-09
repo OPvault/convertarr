@@ -9,7 +9,16 @@ services:
   convertarr:
     image: ghcr.io/opvault/convertarr:latest
     container_name: convertarr
+    hostname: convertarr
     restart: unless-stopped
+    environment:
+      # Match the uid/gid that owns your bind-mounted /config (and ideally
+      # your media library too). `id -u` / `id -g` on the host. Set to 0/0
+      # to run as root if you can't or won't chown the host dirs.
+      PUID: 1000
+      PGID: 1000
+      # Standard tzdata zone, e.g. "Europe/Oslo", "America/New_York".
+      TZ: Etc/UTC
     ports:
       - "6565:6565"
     volumes:

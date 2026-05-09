@@ -31,30 +31,38 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         ca-certificates \
         tini \
+        gosu \
+        tzdata \
         libva2 \
         libva-drm2 \
         mesa-va-drivers \
     && rm -rf /var/lib/apt/lists/*
 
-# Non-root runtime user. UID/GID 1000 matches the typical desktop user — bind
-# mounts owned by your host user "just work" without needing PUID/PGID mangling.
+# Default convertarr account at uid/gid 1000. The entrypoint reshuffles
+# this to whatever PUID/PGID the user passes at runtime, so files written
+# to the /config bind-mount land with sensible ownership on the host.
 RUN groupadd --gid 1000 convertarr \
     && useradd --uid 1000 --gid convertarr --shell /bin/bash --create-home convertarr
 
 COPY --from=builder /opt/venv /opt/venv
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     CONVERTARR_DATA_DIR=/config \
-    CONVERTARR_DB_URL=sqlite:////config/convertarr.db
+    CONVERTARR_DB_URL=sqlite:////config/convertarr.db \
+    PUID=1000 \
+    PGID=1000
 
 # Persist the DB, logs, and any user uploads here. Bind-mount this on the host.
 VOLUME ["/config"]
 
 EXPOSE 6565
 
-USER convertarr
-WORKDIR /home/convertarr
+# Note: we deliberately don't set USER here. The entrypoint enters as root,
+# fixes ownership on /config, then drops to the requested PUID/PGID via gosu.
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request,sys; \
@@ -63,5 +71,5 @@ sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:6565/login', timeout=3).s
 
 # tini reaps ffmpeg children cleanly and forwards SIGTERM so docker-stop is
 # a graceful shutdown, not a kill.
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["convertarr"]
