@@ -93,6 +93,35 @@ def _load_entity_index(instance_id: int, kind: ArrKind) -> dict[int, dict[str, s
     return out
 
 
+# Page-level cache for the *arr library responses. Series/Movies pages hit
+# `list_series`/`list_movies` on every render — for big libraries that's the
+# bulk of the wall-clock when navigating between pages. A short TTL keeps
+# back-and-forth navigation snappy without serving meaningfully stale data
+# (rescan/queue/history pages don't read this cache).
+_ARR_LIBRARY_TTL = 30.0
+_arr_library_cache: dict[tuple[str, int], tuple[float, list[dict]]] = {}
+
+
+async def _cached_list_series(instance_id: int, base: str, key: str) -> list[dict]:
+    now = asyncio.get_running_loop().time()
+    cached = _arr_library_cache.get(("sonarr", instance_id))
+    if cached and now - cached[0] < _ARR_LIBRARY_TTL:
+        return cached[1]
+    series = await SonarrClient(base, key).list_series()
+    _arr_library_cache[("sonarr", instance_id)] = (now, series)
+    return series
+
+
+async def _cached_list_movies(instance_id: int, base: str, key: str) -> list[dict]:
+    now = asyncio.get_running_loop().time()
+    cached = _arr_library_cache.get(("radarr", instance_id))
+    if cached and now - cached[0] < _ARR_LIBRARY_TTL:
+        return cached[1]
+    movies = await RadarrClient(base, key).list_movies()
+    _arr_library_cache[("radarr", instance_id)] = (now, movies)
+    return movies
+
+
 def _enrich_movie_data(movies: list[dict], instance_id: int) -> None:
     """Attach `_formats` and `_video_codecs` to each movie in-place. Merges
     three sources, in order of accuracy:
@@ -574,15 +603,17 @@ async def series_page(
         ).all()
         instance_snapshots = [(i.id, i.name, i.base_url, i.api_key) for i in instances]
 
+    fetched = await asyncio.gather(
+        *(_cached_list_series(inst_id, base, key) for inst_id, _, base, key in instance_snapshots),
+        return_exceptions=True,
+    )
+
     groups: list[dict] = []
-    for inst_id, name, base, key in instance_snapshots:
-        client = SonarrClient(base, key)
-        try:
-            series = await client.list_series()
-            error = None
-        except Exception as e:
-            series = []
-            error = repr(e)
+    for (inst_id, name, _, _), result in zip(instance_snapshots, fetched):
+        if isinstance(result, Exception):
+            series, error = [], repr(result)
+        else:
+            series, error = result, None
         # Codec/format data comes from EntityIndex (kept warm by the indexer
         # worker) plus any MediaFile probes — both DB reads, no live N+1.
         _enrich_series_data(series, inst_id)
@@ -786,14 +817,17 @@ async def movies_page(
         ).all()
         instance_snapshots = [(i.id, i.name, i.base_url, i.api_key) for i in instances]
 
+    fetched = await asyncio.gather(
+        *(_cached_list_movies(inst_id, base, key) for inst_id, _, base, key in instance_snapshots),
+        return_exceptions=True,
+    )
+
     groups: list[dict] = []
-    for inst_id, name, base, key in instance_snapshots:
-        try:
-            movies = await RadarrClient(base, key).list_movies()
-            error = None
-        except Exception as e:
-            movies = []
-            error = repr(e)
+    for (inst_id, name, _, _), result in zip(instance_snapshots, fetched):
+        if isinstance(result, Exception):
+            movies, error = [], repr(result)
+        else:
+            movies, error = result, None
         _enrich_movie_data(movies, inst_id)
         filtered = apply_filter(movies, spec, kind="radarr")
         ordered = apply_sort(filtered, selected_sort, selected_dir, scope="movies")

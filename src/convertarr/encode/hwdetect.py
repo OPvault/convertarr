@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 from dataclasses import dataclass
+from functools import lru_cache
 
 from ..config import settings
 
@@ -23,7 +24,12 @@ QSV_HEVC = EncoderProfile("hevc_qsv", "qsv", "Intel QSV (hevc_qsv)")
 ALL_HEVC: tuple[EncoderProfile, ...] = (NVENC_HEVC, VAAPI_HEVC, QSV_HEVC, AMF_HEVC, CPU_HEVC)
 
 
-def _ffmpeg_has_encoder(name: str) -> bool:
+# Hardware/ffmpeg probes are memoized for the process lifetime — subprocess
+# calls add hundreds of ms each and the results don't change without a
+# restart. Detection runs on every page render via _ctx(); without this the
+# Series/Movies pages spent most of their wall time here.
+@lru_cache(maxsize=1)
+def _ffmpeg_encoders_blob() -> str:
     try:
         out = subprocess.run(
             [settings.ffmpeg_bin, "-hide_banner", "-encoders"],
@@ -33,10 +39,15 @@ def _ffmpeg_has_encoder(name: str) -> bool:
             timeout=5,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-    return any(name in line for line in out.stdout.splitlines())
+        return ""
+    return out.stdout
 
 
+def _ffmpeg_has_encoder(name: str) -> bool:
+    return any(name in line for line in _ffmpeg_encoders_blob().splitlines())
+
+
+@lru_cache(maxsize=1)
 def _has_nvidia_gpu() -> bool:
     if not shutil.which("nvidia-smi"):
         return False
@@ -47,6 +58,7 @@ def _has_nvidia_gpu() -> bool:
     return out.returncode == 0 and "GPU" in out.stdout
 
 
+@lru_cache(maxsize=1)
 def _has_vaapi_device() -> bool:
     import os
 

@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block content %}
-<h1>Movies</h1>
+<h1>Radarr</h1>
 
 {% if not groups %}
     <div class="empty">
@@ -36,7 +36,8 @@
         {% for m in g.entries %}
             <a class="poster" href="/movies/{{ g.instance_id }}/{{ m.id }}" data-title="{{ m.title }}"
                data-instance-id="{{ g.instance_id }}" data-entity-id="{{ m.id }}">
-                <div class="poster-image" {% if m.poster_proxy %}style="background-image: url('{{ m.poster_proxy }}')"{% endif %}>
+                <div class="poster-image">
+                    {% if m.poster_proxy %}<img src="{{ m.poster_proxy }}" alt="" loading="lazy" decoding="async">{% endif %}
                 </div>
                 <div class="poster-body">
                     <div class="poster-title" title="{{ m.title }}">{{ m.title }}</div>

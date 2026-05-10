@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block content %}
-<h1>Series</h1>
+<h1>Sonarr</h1>
 
 {% if not groups %}
     <div class="empty">
@@ -36,7 +36,8 @@
         {% for s in g.entries %}
             <a class="poster" href="/series/{{ g.instance_id }}/{{ s.id }}" data-title="{{ s.title }}"
                data-instance-id="{{ g.instance_id }}" data-entity-id="{{ s.id }}">
-                <div class="poster-image" {% if s.poster_proxy %}style="background-image: url('{{ s.poster_proxy }}')"{% endif %}>
+                <div class="poster-image">
+                    {% if s.poster_proxy %}<img src="{{ s.poster_proxy }}" alt="" loading="lazy" decoding="async">{% endif %}
                 </div>
                 <div class="poster-body">
                     <div class="poster-title" title="{{ s.title }}">{{ s.title }}</div>

@@ -536,6 +536,11 @@ td .badge.failed::before                                { background: var(--red)
     color: var(--text);
     text-decoration: none;
     display: block;
+    /* Skip rendering + drop decoded image data for tiles far off-screen.
+       Browser re-renders when they scroll back in; the poster proxy is
+       served immutable so the re-fetch is a browser-cache hit. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
 }
 .poster:hover {
     transform: translateY(-2px);
@@ -548,6 +553,13 @@ td .badge.failed::before                                { background: var(--red)
     background-size: cover;
     background-position: center;
     position: relative;
+    overflow: hidden;
+}
+.poster-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 .poster-image .ribbon {
     position: absolute;

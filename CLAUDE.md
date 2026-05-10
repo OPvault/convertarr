@@ -87,6 +87,34 @@ python3 scripts/ghcr-tags.py              # apply TAG_MAP + prune orphans
 
 `scripts/` is in `.gitignore` — these are operator tools, not committed to the repo.
 
+## Commit messages
+
+Semantic Commits — `<type>(<scope>): <subject>` (scope optional).
+
+Types:
+- `feat` — new user-visible feature
+- `fix` — user-visible bug fix
+- `docs` — documentation only
+- `style` — formatting, whitespace, no code behaviour change
+- `refactor` — production code change with no behaviour change
+- `test` — adding or refactoring tests, no production change
+- `chore` — build, deps, tooling, no production change
+
+Subject rules:
+- Present tense, lowercase, no trailing period.
+- Concise but descriptive — readable without the diff.
+- Use a scope when the change is clearly bound to a module/feature/file group.
+
+Examples:
+- `feat(auth): add OAuth2 login support`
+- `fix(api): handle null response from payment gateway`
+- `refactor(cart): simplify discount calculation logic`
+- `chore: update dependencies`
+
+**Always inspect the diff first** — `git diff --staged` (or `git diff HEAD` if nothing is staged). Base the message on what's actually changed, not on conversation context.
+
+When the user asks for a commit message in isolation (no commit action), return only the message in a single fenced code block — no surrounding prose.
+
 ## Things NOT to do
 
 - **Don't commit unless asked.** State the change is ready and let the user run `git commit` (or say "commit it for me").
