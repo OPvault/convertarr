@@ -14,3 +14,4 @@ tests/
 .pytest_cache/
 pull-db.sh
 sync.sh
+scripts/

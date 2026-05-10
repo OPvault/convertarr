@@ -1,0 +1,121 @@
+name: Bug report
+description: Something in Convertarr is broken or behaves unexpectedly.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in as much as you can — incomplete reports usually get closed with a request for more info, which slows everyone down.
+
+        Before submitting, please [search existing issues](https://github.com/opvault/convertarr/issues?q=is%3Aissue) to avoid duplicates.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+        - label: I have reproduced this on the latest released version.
+          required: true
+        - label: This is not a security vulnerability (those go to the [Security tab](https://github.com/opvault/convertarr/security/advisories/new)).
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Convertarr version
+      description: Image tag (e.g. `1.0.1`, `latest`, `sha-abc123`) or git commit if running from source.
+      placeholder: "1.0.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      options:
+        - Docker (single instance / host only)
+        - Docker (host + paired worker)
+        - Bare metal via run.sh
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Host OS / kernel
+      description: Output of `uname -a` or your distro + version. For Docker, the container *host* OS.
+      placeholder: "Linux 6.8.0-generic / Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: input
+    id: ffmpeg
+    attributes:
+      label: ffmpeg version
+      description: First line of `ffmpeg -version`.
+      placeholder: "ffmpeg version 6.1.1"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Encoder / GPU (if relevant)
+      description: GPU model + driver, or "CPU only". Important for any hwaccel-related bug.
+      placeholder: "NVIDIA RTX 4060, driver 550.78 / NVENC"
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you expect, and what actually happened?
+      placeholder: |
+        I queued an AV1 → HEVC conversion and the job failed silently after ~2 seconds.
+        I expected the encode to complete and the file to be replaced.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, ordered steps. If it depends on a specific source file, mention codec / pix_fmt / container.
+      placeholder: |
+        1. Add Sonarr instance with a series containing AV1 episodes.
+        2. Create workflow: condition `video_codec == av1`, action: re-encode to HEVC.
+        3. Trigger rescan.
+        4. Job fails immediately.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste short logs here. For long job logs, attach the file from `data/logs/job-N.log` (or `/config/logs/job-N.log` in Docker). Redact API keys.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow rule (if applicable)
+      description: The workflow conditions + action that triggered the job. Skip if the bug isn't conversion-related.
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Network setup, reverse proxy, related issues, screenshots, etc.
+    validations:
+      required: false

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or troubleshooting help
+    url: https://github.com/opvault/convertarr/discussions
+    about: Please ask in Discussions instead of opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/opvault/convertarr/security/advisories/new
+    about: Report security issues privately — do not open a public issue.
