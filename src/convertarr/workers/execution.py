@@ -40,7 +40,7 @@ from ..encode.plan import build_ffmpeg_args, output_path_for
 from ..encode.runner import Runner
 from ..models import ArrInstance, ArrKind, EntityIndex, Job, JobState, MediaFile, Node
 from ..probe.ffprobe import ffprobe
-from ..probe.policy import FilePlan, StreamPlan, evaluate
+from ..probe.policy import FilePlan, StreamPlan, evaluate, first_reencode_codec
 from ..workflows import load_active_workflows, pick_workflow
 
 log = logging.getLogger(__name__)
@@ -282,6 +282,13 @@ def claim_for_node(node_id: str) -> JobDispatch | None:
         host_log = log_path
         job.log_path = host_log
         job.output_path = host_output
+        # Codec snapshot — drives the dashboard's "AV1 → HEVC" chip.
+        # Stamped here (rather than computed at render time) so the 2-second
+        # poll never has to re-evaluate the workflow.
+        job.source_video_codec = first_reencode_codec(plan, "video")
+        job.source_audio_codec = first_reencode_codec(plan, "audio")
+        job.target_video_codec = plan.video_target_codec
+        job.target_audio_codec = plan.audio_target_codec
 
         display_title = mf.arr_entity_title or Path(mf.path).name
         return JobDispatch(

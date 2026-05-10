@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from ..config import settings
 from ..db import session_scope
 from ..models import ArrInstance, ArrKind, EntityIndex, Job, JobState, MediaFile, PathMapping, SavedFilter, Workflow
+from ..probe.codec_labels import canonical_codec as _canonical_codec
 from . import runtime_settings as rs
 from .auth import require_auth
 
@@ -248,25 +249,8 @@ async def system_backup_import(file: UploadFile = File(...)) -> RedirectResponse
 
 # ---------- Statistics ----------
 
-# Codec aliases (h265/x265/hevc, h264/x264/avc, …) get folded down to a single
-# display label so the codec chart shows one bar per real codec instead of
-# three. Mirrors `_CODEC_ALIASES` in web/filters.py but keyed for display.
-_CODEC_CANONICAL: dict[str, str] = {
-    "hevc": "HEVC (H.265)", "h265": "HEVC (H.265)", "x265": "HEVC (H.265)",
-    "avc":  "H.264",         "h264": "H.264",         "x264": "H.264",
-    "vvc":  "VVC (H.266)",   "h266": "VVC (H.266)",   "x266": "VVC (H.266)",
-    "av1":  "AV1",
-    "vp9":  "VP9",
-    "vp8":  "VP8",
-    "mpeg4": "MPEG-4",
-    "mpeg2video": "MPEG-2",
-    "mpeg2": "MPEG-2",
-    "vc1":  "VC-1",
-}
-
-
-def _canonical_codec(codec: str) -> str:
-    return _CODEC_CANONICAL.get(codec.lower(), codec.upper() if codec else "Unknown")
+# Codec display helpers (canonical_codec) live in probe/codec_labels so both
+# the statistics charts here and the dashboard chips can share them.
 
 
 def _resolution_bucket(height: int | None) -> str:

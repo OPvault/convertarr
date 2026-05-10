@@ -196,3 +196,15 @@ def _codecs_equivalent(a: str, b: str) -> bool:
     if a == b:
         return True
     return b in _CODEC_EQUIVALENTS.get(a, set())
+
+
+def first_reencode_codec(plan: FilePlan, codec_type: str) -> str | None:
+    """Return the codec_name of the first stream of `codec_type` whose action
+    is 'reencode' (skipping attached_pic). Used by the dashboard to label
+    what the encoder is actually transforming, e.g. AV1 → HEVC."""
+    for s in plan.streams:
+        if s.codec_type != codec_type or s.is_attached_pic:
+            continue
+        if s.action == "reencode":
+            return s.codec_name
+    return None

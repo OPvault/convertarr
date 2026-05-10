@@ -43,6 +43,8 @@
                 <span><span class="dim">FPS</span> <strong>{{ "%.0f"|format(j.fps) if j.fps else "—" }}</strong></span>
                 <span><span class="dim">Speed</span> <strong>{{ "%.2fx"|format(j.speed) if j.speed else "—" }}</strong></span>
                 <span class="kbd">{{ j.encoder or "-" }}</span>
+                {% if j.video_label %}<span class="kbd" title="Video codec conversion">{{ j.video_label }}</span>{% endif %}
+                {% if j.audio_label %}<span class="kbd" title="Audio codec conversion">{{ j.audio_label }}</span>{% endif %}
                 <span class="dim">job #{{ j.id }}</span>
             </div>
         </article>
@@ -144,6 +146,8 @@
                     <span><span class="dim">FPS</span> <strong>{{ "%.0f"|format(j.fps) if j.fps else "—" }}</strong></span>
                     <span><span class="dim">Speed</span> <strong>{{ "%.2fx"|format(j.speed) if j.speed else "—" }}</strong></span>
                     <span class="kbd">{{ j.encoder or "-" }}</span>
+                    {% if j.video_label %}<span class="kbd" title="Video codec conversion">{{ j.video_label }}</span>{% endif %}
+                    {% if j.audio_label %}<span class="kbd" title="Audio codec conversion">{{ j.audio_label }}</span>{% endif %}
                     <span class="dim">job #{{ j.id }}</span>
                 </div>
             </div>

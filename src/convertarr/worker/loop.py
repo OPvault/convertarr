@@ -42,6 +42,18 @@ PROGRESS_THROTTLE_SECONDS = 1.0
 AUTH_FAIL_BACKOFF_MAX_SECONDS = 120
 
 
+def _first_reencode_codec_from_dict(file_plan: dict, codec_type: str) -> str | None:
+    """Worker-side equivalent of probe.policy.first_reencode_codec, but
+    operates on the serialized dict form straight off the wire so we don't
+    pay the cost of materializing every StreamPlan just to read one value."""
+    for s in (file_plan.get("streams") or []):
+        if s.get("codec_type") != codec_type or s.get("is_attached_pic"):
+            continue
+        if s.get("action") == "reencode":
+            return s.get("codec_name")
+    return None
+
+
 class WorkerLoop:
     def __init__(
         self,
@@ -150,6 +162,14 @@ class WorkerLoop:
         id so subsequent progress/finish writes can target it. Returns
         None if the insert fails — the encode itself still proceeds; we
         just lose worker-side observability for this job."""
+        # Pull source codecs straight from the serialized FilePlan in the
+        # dispatch. Dict form to avoid the cost of rehydrating into
+        # StreamPlan dataclasses just to read two values.
+        file_plan = dispatch.file_plan or {}
+        src_video = _first_reencode_codec_from_dict(file_plan, "video")
+        src_audio = _first_reencode_codec_from_dict(file_plan, "audio")
+        target_video = file_plan.get("video_target_codec")
+        target_audio = file_plan.get("audio_target_codec")
         try:
             with session_scope() as s:
                 row = Job(
@@ -162,6 +182,10 @@ class WorkerLoop:
                     output_path=dispatch.output_path,
                     log_path=dispatch.log_path,
                     started_at=datetime.now(timezone.utc),
+                    source_video_codec=src_video,
+                    source_audio_codec=src_audio,
+                    target_video_codec=target_video,
+                    target_audio_codec=target_audio,
                 )
                 s.add(row)
                 s.flush()

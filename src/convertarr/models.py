@@ -331,6 +331,15 @@ class Job(Base):
     encoder: Mapped[str | None] = mapped_column(String(60))
     ffmpeg_args: Mapped[list | None] = mapped_column(JSON)
 
+    # Codec snapshot — populated when the job is claimed (host) or its
+    # worker-side mirror row is created. Lets the dashboard render a
+    # "AV1 → HEVC (H.265)" / "FLAC → AAC" chip without re-evaluating
+    # the workflow on every 2-second poll.
+    source_video_codec: Mapped[str | None] = mapped_column(String(40))
+    source_audio_codec: Mapped[str | None] = mapped_column(String(40))
+    target_video_codec: Mapped[str | None] = mapped_column(String(40))
+    target_audio_codec: Mapped[str | None] = mapped_column(String(40))
+
     progress_pct: Mapped[float] = mapped_column(default=0.0)
     progress_speed: Mapped[float | None]
     progress_fps: Mapped[float | None]

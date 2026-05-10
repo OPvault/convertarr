@@ -20,6 +20,7 @@ from ..arr.sonarr import SonarrClient
 from ..db import session_scope
 from ..encode.hwdetect import detect_best, is_detected, list_known
 from ..models import ArrInstance, ArrKind, EntityIndex, ImageCache, Job, JobState, MediaFile, Node, PathMapping, SavedFilter, Workflow
+from ..probe.codec_labels import format_conversion as _format_conversion
 from ..workflows import WORKFLOW_FIELDS, WORKFLOW_OPS, VIDEO_CODEC_TARGETS, AUDIO_CODEC_TARGETS
 from .filters import (
     BUILTIN_FILTERS,
@@ -374,6 +375,11 @@ def _dashboard_running_context() -> dict:
                 # UI can label them "for host" and link the operator back to
                 # the originating job.
                 "host_job_id": j.host_job_id,
+                # "AV1 → HEVC (H.265)" / "FLAC → AAC" — None when the source
+                # already matches the target (no real conversion to label),
+                # in which case the template skips the chip entirely.
+                "video_label": _format_conversion(j.source_video_codec, j.target_video_codec),
+                "audio_label": _format_conversion(j.source_audio_codec, j.target_audio_codec),
             }
             running_by_node.setdefault(j.node_id or "_unassigned", []).append(row)
 

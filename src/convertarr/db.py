@@ -245,6 +245,27 @@ def _migrate_media_file_episode_columns(engine: Engine) -> None:
                 conn.exec_driver_sql(f"ALTER TABLE media_file ADD COLUMN {col} INTEGER")
 
 
+def _migrate_job_codec_columns(engine: Engine) -> None:
+    """Add the source_*_codec / target_*_codec snapshot columns to `job`.
+    Stamped at claim time so the dashboard can render a 'AV1 → HEVC'
+    chip without re-evaluating the workflow on every poll. Idempotent —
+    same pattern as `_migrate_job_mirror_columns`.
+    """
+    with engine.begin() as conn:
+        cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(job)").fetchall()}
+        if not cols:
+            return  # table doesn't exist yet — create_all will make it fresh
+        for col in (
+            "source_video_codec",
+            "source_audio_codec",
+            "target_video_codec",
+            "target_audio_codec",
+        ):
+            if col not in cols:
+                log.info("migrating job: adding %s column", col)
+                conn.exec_driver_sql(f"ALTER TABLE job ADD COLUMN {col} VARCHAR(40)")
+
+
 def init_db() -> None:
     _migrate_arr_instance(engine)
     _migrate_job_node_id(engine)
@@ -252,6 +273,7 @@ def init_db() -> None:
     _migrate_media_file_original_path(engine)
     _migrate_media_file_episode_columns(engine)
     _migrate_job_mirror_columns(engine)
+    _migrate_job_codec_columns(engine)
     Base.metadata.create_all(engine)
     # Seed runtime settings (api_key, auth defaults, delete_originals).
     # Imported lazily because runtime_settings imports from .db.
