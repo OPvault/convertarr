@@ -1,4 +1,8 @@
-# Convertarr
+<p align="center">
+  <img src="assets/icon.svg" alt="Convertarr" width="128">
+</p>
+
+<h1 align="center">Convertarr</h1>
 
 The missing \*arr for your media server. Convertarr plugs into Sonarr and Radarr, ffprobes every file, and pre-encodes anything Jellyfin or Plex would otherwise have to transcode at playback — so streaming stays direct-play. Subtitles, attachments, chapters, and matching audio tracks are stream-copied bit-for-bit; only the offending streams get re-encoded.
 
