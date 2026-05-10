@@ -34,7 +34,7 @@
     {% else %}
         <div class="poster-grid" data-scope="series">
         {% for s in g.entries %}
-            <a class="poster" href="/series/{{ g.instance_id }}/{{ s.id }}" data-title="{{ s.title }}"
+            <a class="poster" href="/sonarr/{{ g.instance_id }}/{{ s.id }}" data-title="{{ s.title }}"
                data-instance-id="{{ g.instance_id }}" data-entity-id="{{ s.id }}">
                 <div class="poster-image">
                     {% if s.poster_proxy %}<img src="{{ s.poster_proxy }}" alt="" loading="lazy" decoding="async">{% endif %}

@@ -36,7 +36,9 @@
         </div>
         <div class="about-row">
             <dt>Uptime</dt>
-            <dd title="Started {{ started_at.strftime('%A, %b %-d %Y %H:%M:%S UTC') }}">{{ uptime_str }}</dd>
+            <dd id="uptime"
+                data-started="{{ started_at.isoformat() }}"
+                title="Started {{ started_at.strftime('%A, %b %-d %Y %H:%M:%S UTC') }}">{{ uptime_str }}</dd>
         </div>
     </dl>
 </div>
@@ -81,4 +83,25 @@
         }
     }
 </style>
+<script>
+(function () {
+    const el = document.getElementById("uptime");
+    if (!el) return;
+    const started = Date.parse(el.dataset.started);
+    if (isNaN(started)) return;
+    const pad = (n) => String(n).padStart(2, "0");
+    function tick() {
+        const s = Math.max(0, Math.floor((Date.now() - started) / 1000));
+        const days = Math.floor(s / 86400);
+        const h = Math.floor((s % 86400) / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        el.textContent = days
+            ? `${days}d ${pad(h)}:${pad(m)}:${pad(sec)}`
+            : `${pad(h)}:${pad(m)}:${pad(sec)}`;
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+</script>
 {% endblock %}

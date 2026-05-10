@@ -585,7 +585,7 @@ async def dashboard_fragment(request: Request) -> HTMLResponse:
     )
 
 
-@router.get("/series", response_class=HTMLResponse)
+@router.get("/sonarr", response_class=HTMLResponse)
 async def series_page(
     request: Request,
     filter: str | None = None,
@@ -614,6 +614,9 @@ async def series_page(
             series, error = [], repr(result)
         else:
             series, error = result, None
+        # Hide series with no downloaded episodes — there's nothing for
+        # Convertarr to act on.
+        series = [sr for sr in series if (sr.get("statistics") or {}).get("episodeFileCount", 0) > 0]
         # Codec/format data comes from EntityIndex (kept warm by the indexer
         # worker) plus any MediaFile probes — both DB reads, no live N+1.
         _enrich_series_data(series, inst_id)
@@ -678,14 +681,14 @@ def _assert_not_in_worker_mode() -> None:
         )
 
 
-@router.post("/series/{instance_id}/{series_id}/rescan")
+@router.post("/sonarr/{instance_id}/{series_id}/rescan")
 async def rescan_series(instance_id: int, series_id: int,
                         workflow_id: int | None = None) -> dict:
     _assert_not_in_worker_mode()
     return await rescan_sonarr_series(instance_id, series_id, workflow_id=workflow_id)
 
 
-@router.post("/series/bulk-rescan")
+@router.post("/sonarr/bulk-rescan")
 async def bulk_rescan_series(payload: dict) -> dict:
     """Fan out per-series rescans for the bulk-select UI. The optional
     `workflow_id` in the payload pins every rescan to a specific workflow;
@@ -715,7 +718,7 @@ async def bulk_rescan_series(payload: dict) -> dict:
     return {"queued": queued, "skipped": skipped, "failed": failed, "items": len(items)}
 
 
-@router.get("/series/{instance_id}/{series_id}", response_class=HTMLResponse)
+@router.get("/sonarr/{instance_id}/{series_id}", response_class=HTMLResponse)
 async def series_detail(request: Request, instance_id: int, series_id: int) -> HTMLResponse:
     with session_scope() as s:
         inst = s.get(ArrInstance, instance_id)
@@ -733,9 +736,13 @@ async def series_detail(request: Request, instance_id: int, series_id: int) -> H
     except httpx.HTTPError as e:
         raise HTTPException(502, f"Couldn't reach Sonarr: {e!r}")
     files_by_id = {f["id"]: f for f in files}
+    monitored_by_season = {
+        sm.get("seasonNumber"): bool(sm.get("monitored", True))
+        for sm in (series.get("seasons") or [])
+    }
 
     seasons: dict[int, list[dict]] = {}
-    for ep in sorted(episodes, key=lambda e: (e.get("seasonNumber", 0), e.get("episodeNumber", 0))):
+    for ep in episodes:
         sn = ep.get("seasonNumber", 0)
         ef_id = ep.get("episodeFileId") or 0
         ef = files_by_id.get(ef_id) or {}
@@ -757,6 +764,20 @@ async def series_detail(request: Request, instance_id: int, series_id: int) -> H
             }
         )
 
+    # Hide unmonitored seasons and any monitored season that has no files
+    # downloaded yet — Convertarr can't act on either, so they're noise here.
+    # Within each shown season, latest episode first.
+    visible_seasons = []
+    for sn, eps in seasons.items():
+        if not monitored_by_season.get(sn, True):
+            continue
+        if not any(e["has_file"] for e in eps):
+            continue
+        eps.sort(key=lambda e: -(e["number"] or 0))
+        visible_seasons.append((sn, eps))
+    # Highest season first; Specials (0) sinks to the bottom.
+    visible_seasons.sort(key=lambda kv: (1, 0) if kv[0] == 0 else (0, -kv[0]))
+
     detail = {
         "id": series.get("id"),
         "title": series.get("title"),
@@ -773,8 +794,7 @@ async def series_detail(request: Request, instance_id: int, series_id: int) -> H
         "instance_id": instance_id,
         "instance_name": name,
         "stats": series.get("statistics", {}),
-        # Sonarr default: highest season first, Specials (0) at the very end.
-        "seasons": sorted(seasons.items(), key=lambda kv: (0, -kv[0]) if kv[0] != 0 else (1, 0)),
+        "seasons": visible_seasons,
     }
 
     return templates.TemplateResponse(
@@ -783,7 +803,7 @@ async def series_detail(request: Request, instance_id: int, series_id: int) -> H
     )
 
 
-@router.post("/series/{instance_id}/episodefile/{episode_file_id}/rescan")
+@router.post("/sonarr/{instance_id}/episodefile/{episode_file_id}/rescan")
 async def rescan_episode_file(instance_id: int, episode_file_id: int,
                               workflow_id: int | None = None) -> dict:
     _assert_not_in_worker_mode()
@@ -791,7 +811,7 @@ async def rescan_episode_file(instance_id: int, episode_file_id: int,
                                             workflow_id=workflow_id)
 
 
-@router.post("/series/{instance_id}/{series_id}/season/{season_number}/rescan")
+@router.post("/sonarr/{instance_id}/{series_id}/season/{season_number}/rescan")
 async def rescan_season(instance_id: int, series_id: int, season_number: int,
                         workflow_id: int | None = None) -> dict:
     _assert_not_in_worker_mode()
@@ -799,7 +819,7 @@ async def rescan_season(instance_id: int, series_id: int, season_number: int,
                                       workflow_id=workflow_id)
 
 
-@router.get("/movies", response_class=HTMLResponse)
+@router.get("/radarr", response_class=HTMLResponse)
 async def movies_page(
     request: Request,
     filter: str | None = None,
@@ -828,6 +848,8 @@ async def movies_page(
             movies, error = [], repr(result)
         else:
             movies, error = result, None
+        # Hide movies without a downloaded file — Convertarr can't act on them.
+        movies = [m for m in movies if m.get("hasFile")]
         _enrich_movie_data(movies, inst_id)
         filtered = apply_filter(movies, spec, kind="radarr")
         ordered = apply_sort(filtered, selected_sort, selected_dir, scope="movies")
@@ -864,14 +886,14 @@ async def movies_page(
     return response
 
 
-@router.post("/movies/{instance_id}/{movie_id}/rescan")
+@router.post("/radarr/{instance_id}/{movie_id}/rescan")
 async def rescan_movie(instance_id: int, movie_id: int,
                        workflow_id: int | None = None) -> dict:
     _assert_not_in_worker_mode()
     return await rescan_radarr_movie(instance_id, movie_id, workflow_id=workflow_id)
 
 
-@router.post("/movies/bulk-rescan")
+@router.post("/radarr/bulk-rescan")
 async def bulk_rescan_movies(payload: dict) -> dict:
     """Fan out per-movie rescans for the bulk-select UI."""
     _assert_not_in_worker_mode()
@@ -899,7 +921,7 @@ async def bulk_rescan_movies(payload: dict) -> dict:
     return {"queued": queued, "skipped": skipped, "failed": failed, "items": len(items)}
 
 
-@router.get("/movies/{instance_id}/{movie_id}", response_class=HTMLResponse)
+@router.get("/radarr/{instance_id}/{movie_id}", response_class=HTMLResponse)
 async def movie_detail(request: Request, instance_id: int, movie_id: int) -> HTMLResponse:
     with session_scope() as s:
         inst = s.get(ArrInstance, instance_id)
@@ -999,6 +1021,102 @@ async def image_proxy(kind: str, instance_id: int, u: str) -> Response:
         s.merge(ImageCache(url=target, content_type=content_type, content=body))
 
     return Response(content=body, media_type=content_type, headers=_IMG_CACHE_HEADERS)
+
+
+@router.get("/api/search")
+async def global_search(q: str = "", limit: int = 8, kind: str = "both") -> dict:
+    """Top-bar autocomplete — substring/prefix match across enabled
+    Sonarr + Radarr instances. `kind` narrows the search to one side
+    (used by the Sonarr/Radarr library pages); default queries both.
+    Backed by the shared `_cached_list_*` so repeated keystrokes don't
+    refetch from the *arrs."""
+    query = q.strip().lower()
+    if len(query) < 2:
+        return {"results": []}
+
+    kind_filter: ArrKind | None
+    if kind == "sonarr":
+        kind_filter = ArrKind.sonarr
+    elif kind == "radarr":
+        kind_filter = ArrKind.radarr
+    else:
+        kind_filter = None
+
+    with session_scope() as s:
+        stmt = select(ArrInstance).where(ArrInstance.enabled.is_(True))
+        if kind_filter is not None:
+            stmt = stmt.where(ArrInstance.kind == kind_filter)
+        instances = s.scalars(stmt).all()
+        snapshots = [(i.id, i.kind, i.base_url, i.api_key) for i in instances]
+
+    async def _fetch(inst_id: int, kind: ArrKind, base: str, key: str):
+        try:
+            if kind == ArrKind.sonarr:
+                return kind, inst_id, await _cached_list_series(inst_id, base, key)
+            return kind, inst_id, await _cached_list_movies(inst_id, base, key)
+        except Exception:
+            return kind, inst_id, []
+
+    fetched = await asyncio.gather(*(_fetch(*sn) for sn in snapshots))
+
+    def _score(title: str) -> int | None:
+        t = title.lower()
+        if not t:
+            return None
+        if t.startswith(query):
+            return 0
+        if any(part.startswith(query) for part in t.split()):
+            return 1
+        if query in t:
+            return 2
+        return None
+
+    scored: list[tuple[int, int, dict]] = []  # (score, year_neg, payload)
+    for kind, inst_id, items in fetched:
+        for it in items:
+            title = it.get("title", "") or ""
+            # Series-only: episode files. Movies: hasFile. Match list-page rules.
+            if kind == ArrKind.sonarr:
+                if (it.get("statistics") or {}).get("episodeFileCount", 0) <= 0:
+                    continue
+                alt_titles = [a.get("title", "") for a in (it.get("alternateTitles") or [])]
+            else:
+                if not it.get("hasFile"):
+                    continue
+                alt_titles = [it.get("originalTitle", "") or ""]
+
+            best = None
+            matched_alt = None
+            for cand in [title, *alt_titles]:
+                s_ = _score(cand)
+                if s_ is None:
+                    continue
+                if best is None or s_ < best:
+                    best = s_
+                    matched_alt = cand if cand != title else None
+            if best is None:
+                continue
+
+            year = it.get("year") or 0
+            kind_label = "sonarr" if kind == ArrKind.sonarr else "radarr"
+            poster = _poster_url(it.get("images"))
+            scored.append((
+                best, -year,
+                {
+                    "kind": kind_label,
+                    "instance_id": inst_id,
+                    "id": it.get("id"),
+                    "title": title,
+                    "alt_title": matched_alt if matched_alt and matched_alt != title else None,
+                    "year": it.get("year"),
+                    "url": f"/{kind_label}/{inst_id}/{it.get('id')}",
+                    "poster_proxy": f"/img/{kind_label}/{inst_id}?u={poster}" if poster else None,
+                },
+            ))
+
+    scored.sort(key=lambda x: (x[0], x[1], x[2]["title"].lower()))
+    cap = max(1, min(limit, 20))
+    return {"results": [p for _, _, p in scored[:cap]]}
 
 
 @router.get("/api/filters")

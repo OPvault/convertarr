@@ -2,7 +2,7 @@
 
 {% block toolbar %}
 <div class="toolbar">
-    <a class="tool-btn" href="/movies" title="Back to Movies">
+    <a class="tool-btn" href="/radarr" title="Back to Radarr">
         <span class="icon">←</span><span>Back</span>
     </a>
     {% if movie.has_file %}
@@ -16,7 +16,7 @@
             </select>
             {% endif %}
             <button class="tool-btn"
-                    onclick="convertarrRescanMovie(this, '/movies/{{ movie.instance_id }}/{{ movie.id }}/rescan',
+                    onclick="convertarrRescanMovie(this, '/radarr/{{ movie.instance_id }}/{{ movie.id }}/rescan',
                                                    {{ (workflows | length > 1) | tojson }})">
                 <span class="icon">↻</span><span>Rescan</span>
             </button>

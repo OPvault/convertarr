@@ -141,7 +141,14 @@ html, body {
     font-size: 14px;
     height: 100%;
     overflow: hidden;
+    /* Belt-and-braces: long unbreakable strings (file paths, URLs in cards)
+       can otherwise force horizontal overflow inside .content on phones. */
+    overflow-wrap: anywhere;
 }
+
+/* Long file paths and URLs always break instead of stretching their
+   containers off-screen on phones. */
+code { overflow-wrap: anywhere; word-break: break-word; }
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); }
@@ -260,8 +267,79 @@ a:hover { color: var(--accent-hover); }
     border-radius: var(--radius-md);
     padding: 0 var(--space-3);
     height: 34px;
+    position: relative;
 }
-.search-icon { color: var(--text-dim); }
+.search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+    padding: 0.25rem;
+    z-index: 100;
+}
+.search-empty {
+    padding: 0.6rem 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+.search-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: var(--radius-sm, 4px);
+    color: var(--text);
+    text-decoration: none;
+}
+.search-item:hover, .search-item.active { background: var(--surface-hover); }
+.search-poster {
+    width: 36px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: 3px;
+    flex-shrink: 0;
+    background: var(--bg-input);
+}
+.search-poster-empty { background: var(--bg-input); }
+.search-text { min-width: 0; flex: 1; }
+.search-title {
+    font-size: 0.88rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.search-year { color: var(--text-dim); font-weight: 400; }
+.search-alt {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.search-kind {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.1rem;
+}
+.search-icon {
+    color: var(--text-dim);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+}
 .search input {
     flex: 1;
     background: transparent;
@@ -270,6 +348,19 @@ a:hover { color: var(--accent-hover); }
     color: var(--text);
     font-size: 0.9rem;
     height: 100%;
+}
+/* The inner <input> gets no focus chrome of its own — focus lights up the
+   outer pill via :focus-within. !important defeats the UA focus-visible
+   ring on type=search that plain `outline: none` doesn't always suppress. */
+#poster-search,
+#poster-search:focus,
+#poster-search:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+.search:focus-within {
+    border-color: var(--accent);
 }
 .topbar-actions { margin-left: auto; display: flex; gap: var(--space-2); align-items: center; }
 .topbar-pill {
@@ -292,6 +383,55 @@ a:hover { color: var(--accent-hover); }
     background: var(--green);
     box-shadow: 0 0 6px rgb(var(--green-rgb) / 0.5);
 }
+.topbar-icon-btn {
+    background: transparent;
+    border: 1px solid var(--border-soft);
+    color: var(--text-muted);
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+}
+.topbar-icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+.topbar-icon-btn svg { display: block; }
+
+.user-menu { position: relative; }
+.user-menu > summary {
+    list-style: none;
+    -webkit-appearance: none;
+}
+.user-menu > summary::-webkit-details-marker { display: none; }
+.user-menu > summary::marker { content: ""; }
+.user-menu[open] > summary { background: var(--surface-hover); color: var(--text); }
+.user-menu-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 160px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,0.35));
+    padding: 0.25rem;
+    z-index: 100;
+}
+.user-menu-item {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.88rem;
+    border-radius: var(--radius-sm, 4px);
+    cursor: pointer;
+}
+.user-menu-item:hover { background: var(--surface-hover); }
 
 /* ===== Toolbar ===== */
 .toolbar {
@@ -2491,6 +2631,16 @@ a.primary-button:hover { background: var(--accent-hover); border-color: var(--ac
     }
     .topbar-menu { display: inline-flex; }
     .search { flex: 1 1 auto; min-width: 0; }
+    /* Search dropdown spans more of the screen than the input itself —
+       the bounded version was too narrow on phones for the result rows. */
+    .search-results {
+        left: calc(-1 * var(--space-3));
+        right: calc(-1 * var(--space-3));
+        max-height: 60vh;
+    }
+    /* Account-menu panel may sit at the right edge of the topbar; cap its
+       width so a 160px+ panel never escapes the viewport. */
+    .user-menu-panel { max-width: calc(100vw - var(--space-3) * 2); }
 
     /* The encoder pill takes a chunk of horizontal space — drop it on
        phone widths so the search field has room. The dashboard's System

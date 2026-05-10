@@ -34,7 +34,7 @@
     {% else %}
         <div class="poster-grid" data-scope="movies">
         {% for m in g.entries %}
-            <a class="poster" href="/movies/{{ g.instance_id }}/{{ m.id }}" data-title="{{ m.title }}"
+            <a class="poster" href="/radarr/{{ g.instance_id }}/{{ m.id }}" data-title="{{ m.title }}"
                data-instance-id="{{ g.instance_id }}" data-entity-id="{{ m.id }}">
                 <div class="poster-image">
                     {% if m.poster_proxy %}<img src="{{ m.poster_proxy }}" alt="" loading="lazy" decoding="async">{% endif %}

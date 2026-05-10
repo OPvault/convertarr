@@ -1,7 +1,7 @@
-// Sonarr-style bulk-select for the Series and Movies grids.
+// Sonarr-style bulk-select for the Sonarr and Radarr grids.
 // Toolbar "Select" button toggles select mode; clicking posters in that mode
 // adds them to the selection; the sticky footer lets the user trigger
-// /series/bulk-rescan or /movies/bulk-rescan with the current selection.
+// /sonarr/bulk-rescan or /radarr/bulk-rescan with the current selection.
 
 (function () {
     // scope -> { mode: bool, selected: Set<"iid:eid"> }
@@ -72,7 +72,7 @@
             const [instance_id, entity_id] = k.split(":").map(Number);
             return { instance_id, entity_id };
         });
-        const url = scope === "series" ? "/series/bulk-rescan" : "/movies/bulk-rescan";
+        const url = scope === "series" ? "/sonarr/bulk-rescan" : "/radarr/bulk-rescan";
         const btn = document.querySelector(`[data-bulk-footer="${scope}"] [data-bulk-action="convert"]`);
         const picker = document.querySelector(`[data-bulk-footer="${scope}"] [data-bulk-workflow-picker]`);
         const originalLabel = btn.textContent;

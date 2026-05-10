@@ -2,7 +2,7 @@
 
 {% block toolbar %}
 <div class="toolbar">
-    <a class="tool-btn" href="/series" title="Back to Series">
+    <a class="tool-btn" href="/sonarr" title="Back to Sonarr">
         <span class="icon">←</span><span>Back</span>
     </a>
     {% if workflows %}
@@ -15,7 +15,7 @@
         </select>
         {% endif %}
         <button class="tool-btn" data-rescan-target="series-all"
-                onclick="convertarrRescan(this, '/series/{{ series.instance_id }}/{{ series.id }}/rescan',
+                onclick="convertarrRescan(this, '/sonarr/{{ series.instance_id }}/{{ series.id }}/rescan',
                                           {{ (workflows | length > 1) | tojson }})">
             <span class="icon">↻</span><span>Rescan all</span>
         </button>
@@ -132,7 +132,7 @@ function convertarrNoWorkflowsToast() {
     <h2 style="margin: 0">{{ "Specials" if season_num == 0 else "Season " ~ season_num }}</h2>
     {% if workflows %}
     <button class="ghost" data-rescan-replace="self"
-            onclick="convertarrRescan(this, '/series/{{ series.instance_id }}/{{ series.id }}/season/{{ season_num }}/rescan',
+            onclick="convertarrRescan(this, '/sonarr/{{ series.instance_id }}/{{ series.id }}/season/{{ season_num }}/rescan',
                                       {{ (workflows | length > 1) | tojson }})">
         Rescan season
     </button>
@@ -174,7 +174,7 @@ function convertarrNoWorkflowsToast() {
                 {% if e.has_file and e.episode_file_id %}
                     {% if workflows %}
                     <button style="padding: 0.3rem 0.7rem; font-size: 0.78rem"
-                            onclick="convertarrRescanEpisode(this, '/series/{{ series.instance_id }}/episodefile/{{ e.episode_file_id }}/rescan',
+                            onclick="convertarrRescanEpisode(this, '/sonarr/{{ series.instance_id }}/episodefile/{{ e.episode_file_id }}/rescan',
                                                               {{ (workflows | length > 1) | tojson }})">
                         Rescan
                     </button>
