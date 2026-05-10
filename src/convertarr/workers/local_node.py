@@ -92,7 +92,8 @@ def ensure_local_node() -> Node:
 
 def _read_local_max_concurrency() -> int:
     """Read the local node's `max_concurrent_jobs` fresh each loop tick so the
-    user can change it from the UI without a worker restart. Clamped [1, 16].
+    user can change it from the UI without a worker restart. Clamped [0, 16];
+    0 means this machine dispatches but never claims jobs (host-only mode).
     """
     with session_scope() as s:
         node = s.get(Node, LOCAL_NODE_ID)
@@ -101,7 +102,7 @@ def _read_local_max_concurrency() -> int:
         n = int(n)
     except (TypeError, ValueError):
         n = 1
-    return max(1, min(16, n))
+    return max(0, min(16, n))
 
 
 async def _run_one_dispatch(dispatch: execution.JobDispatch) -> None:

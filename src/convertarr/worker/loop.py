@@ -133,7 +133,7 @@ class WorkerLoop:
         """The worker's `max_concurrent_jobs` is owned by the worker — set on
         this machine's own /settings/nodes for the local Node row. Read fresh
         each tick so a UI change takes effect without restarting the worker.
-        Clamped [1, 16]."""
+        Clamped [0, 16]; 0 pauses claims without unpairing."""
         from ..models import Node
         from ..workers.local_node import LOCAL_NODE_ID
         try:
@@ -146,7 +146,7 @@ class WorkerLoop:
             n = int(n)
         except (TypeError, ValueError):
             n = 1
-        return max(1, min(16, n))
+        return max(0, min(16, n))
 
     # ---- Local Job mirror writes ----
     #

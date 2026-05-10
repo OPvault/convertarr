@@ -74,7 +74,7 @@ async def register_node(payload: dict, request: Request) -> dict:
     except (TypeError, ValueError):
         worker_max = None
     if worker_max is not None:
-        worker_max = max(1, min(16, worker_max))
+        worker_max = max(0, min(16, worker_max))
     version = payload.get("version")
     address = request.client.host if request.client else None
     now = datetime.now(timezone.utc)
@@ -149,7 +149,7 @@ async def heartbeat(node_id: str, payload: dict) -> dict:
     except (TypeError, ValueError):
         worker_max = None
     if worker_max is not None:
-        worker_max = max(1, min(16, worker_max))
+        worker_max = max(0, min(16, worker_max))
     advertised_version = payload.get("version")
     worker_version = str(advertised_version).strip() if advertised_version else None
 

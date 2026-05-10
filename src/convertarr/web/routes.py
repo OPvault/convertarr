@@ -1634,7 +1634,7 @@ async def save_general_conversion(
     from . import runtime_settings as rs
     from ..workers.local_node import LOCAL_NODE_ID
     rs.set("delete_originals", delete_originals == "on")
-    n_jobs = max(1, min(16, int(max_concurrent_jobs)))
+    n_jobs = max(0, min(16, int(max_concurrent_jobs)))
     with session_scope() as s:
         local = s.get(Node, LOCAL_NODE_ID)
         if local is not None:
@@ -2095,7 +2095,7 @@ async def edit_node(
         # Only the local node's concurrency is editable from this host.
         # Remote workers own their own setting and report it via heartbeat.
         if n.is_local and max_concurrent_jobs is not None:
-            n.max_concurrent_jobs = max(1, min(16, int(max_concurrent_jobs)))
+            n.max_concurrent_jobs = max(0, min(16, int(max_concurrent_jobs)))
     return RedirectResponse("/settings/nodes", status_code=303)
 
 
