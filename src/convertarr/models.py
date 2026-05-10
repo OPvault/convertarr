@@ -245,7 +245,7 @@ class PathMapping(Base):
 
     Example (Radarr in docker, Convertarr on host):
         remote_path = "/movies/"
-        local_path  = "/mnt/smbshare/Media/Movies/"
+        local_path  = "/Media/Movies/"
     Longest matching prefix wins.
     """
 
