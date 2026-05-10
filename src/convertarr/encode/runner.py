@@ -54,12 +54,15 @@ def _parse_progress_line(line: str, p: Progress) -> Progress:
         elif key == "total_size":
             p.total_size = int(value)
         elif key == "speed":
-            # value like "2.31x" or "N/A"
-            if value.endswith("x"):
-                p.speed = float(value[:-1])
+            # value like "2.31x" or "N/A". Reset to None on N/A so the
+            # wall-clock fallback in pump_stdout() recomputes a fresh
+            # estimate this tick instead of pinning the stale prior value.
+            p.speed = float(value[:-1]) if value.endswith("x") else None
         elif key == "fps":
-            if value not in ("", "N/A"):
-                p.fps = float(value)
+            # Same reset rule — without it the UI would freeze on the first
+            # ffmpeg-reported fps and never reflect actual encoder rate as
+            # the load on the GPU changes.
+            p.fps = float(value) if value not in ("", "N/A") else None
         elif key == "frame":
             p.frame = int(value)
     except ValueError:
