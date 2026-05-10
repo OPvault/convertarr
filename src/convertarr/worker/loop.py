@@ -309,21 +309,30 @@ class WorkerLoop:
                 # this worker's local view. We use the worker's OWN
                 # ArrInstance.path_mappings — same data the host's local
                 # ingest uses on its side, just configured per-machine.
+                # The log_path is rewritten to live under THIS worker's data
+                # dir — the host's path (e.g. /config/logs/...) doesn't exist
+                # on the worker and would PermissionError before ffmpeg even
+                # starts. The host keeps its own log_path on the Job row for
+                # its UI; we don't ship the worker's log back.
                 local_mappings = self._local_arr_mappings()
-                if local_mappings:
-                    dispatch = JobDispatch(
-                        job_id=dispatch.job_id,
-                        media_file_id=dispatch.media_file_id,
-                        input_path=translate(dispatch.input_path, local_mappings),
-                        output_path=translate(dispatch.output_path, local_mappings),
-                        log_path=translate(dispatch.log_path, local_mappings),
-                        file_plan=dispatch.file_plan,
-                        policy=dispatch.policy,
-                        duration_seconds=dispatch.duration_seconds,
-                        total_frames=dispatch.total_frames,
-                        delete_originals=dispatch.delete_originals,
-                        backup_dir_name=dispatch.backup_dir_name or BACKUP_DIR_NAME,
-                    )
+                from ..config import settings as _settings
+                local_log_path = str(
+                    _settings.absolute_data_dir / "logs" / f"job-{dispatch.job_id}.log"
+                )
+                dispatch = JobDispatch(
+                    job_id=dispatch.job_id,
+                    media_file_id=dispatch.media_file_id,
+                    input_path=translate(dispatch.input_path, local_mappings) if local_mappings else dispatch.input_path,
+                    output_path=translate(dispatch.output_path, local_mappings) if local_mappings else dispatch.output_path,
+                    log_path=local_log_path,
+                    file_plan=dispatch.file_plan,
+                    policy=dispatch.policy,
+                    duration_seconds=dispatch.duration_seconds,
+                    total_frames=dispatch.total_frames,
+                    delete_originals=dispatch.delete_originals,
+                    backup_dir_name=dispatch.backup_dir_name or BACKUP_DIR_NAME,
+                    display_title=dispatch.display_title,
+                )
                 local_id = self._create_mirror_job(dispatch)
                 self._running[dispatch.job_id] = asyncio.create_task(
                     self._run_one(dispatch, local_id),
