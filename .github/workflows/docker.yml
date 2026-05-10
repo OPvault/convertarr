@@ -21,12 +21,58 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          # Need every tag to compute "is this the highest semver?" below.
+          # With the default fetch-depth=1, `git tag -l` returns nothing.
+          fetch-depth: 0
 
       # GHCR requires a lowercase image path; github.repository preserves the
       # owner's casing (e.g. "OPvault/convertarr"), which would 401 on push.
       - name: Lowercase image name
         id: image
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # Decide which sliding tags this build should own:
+      #   * is_highest_semver — current ref is the largest v* tag in the
+      #     repo. Only that build gets :latest, :{major}.{minor}, :{major}
+      #     so a force-push of an older tag (e.g. moving v1.0.0 backward)
+      #     can't clobber the live release tags.
+      #   * tag_on_main — current ref is a v* tag whose commit is also at
+      #     origin/main HEAD. Lets us apply :main from the same build, so
+      #     :main and :latest stay in sync without a follow-up retag.
+      #   * push_to_main — current ref IS main. Applies :main + :latest so
+      #     a plain `git push origin main` keeps the latest tag pointing
+      #     at the freshest published image.
+      - name: Resolve sliding tag conditions
+        id: refs
+        shell: bash
+        run: |
+          set -eu
+          is_highest_semver=false
+          tag_on_main=false
+          push_to_main=false
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            push_to_main=true
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            current="${GITHUB_REF#refs/tags/}"
+            highest=$(git tag -l 'v*' | sort -V | tail -1 || true)
+            if [ "$current" = "$highest" ]; then
+              is_highest_semver=true
+            fi
+            # Tag-event checkouts don't pull the main branch by default. Fetch
+            # it cheaply so we can compare tag commit ↔ main HEAD.
+            git fetch origin main --depth=1 2>/dev/null || true
+            main_sha=$(git rev-parse origin/main 2>/dev/null || echo "")
+            if [ -n "$main_sha" ] && [ "$GITHUB_SHA" = "$main_sha" ]; then
+              tag_on_main=true
+            fi
+          fi
+          {
+            echo "is_highest_semver=$is_highest_semver"
+            echo "tag_on_main=$tag_on_main"
+            echo "push_to_main=$push_to_main"
+          } >> "$GITHUB_OUTPUT"
+          echo "is_highest_semver=$is_highest_semver tag_on_main=$tag_on_main push_to_main=$push_to_main"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,17 +93,19 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
           # Tag rules:
-          #   * push to main          -> :main, :sha-abcdef0
-          #   * git tag v1.2.3        -> :v1.2.3, :1.2.3, :1.2, :1, :latest
-          #   * pull request          -> :pr-NNN (used for PR builds, not pushed)
+          #   * push to main                       -> :main, :latest, :sha-XXX
+          #   * git tag v1.2.3 (highest semver)    -> :1.2.3, :1.2, :1, :latest, :sha-XXX
+          #   * git tag v1.2.3 (NOT highest)       -> :1.2.3, :sha-XXX  (no sliding tags clobbered)
+          #   * v* tag on current main HEAD        -> also :main (keeps :main and :latest aligned)
+          #   * pull request                       -> :pr-NNN (built but not pushed)
           tags: |
-            type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix=sha-
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.refs.outputs.is_highest_semver == 'true' }}
+            type=semver,pattern={{major}},enable=${{ steps.refs.outputs.is_highest_semver == 'true' }}
+            type=raw,value=latest,enable=${{ steps.refs.outputs.is_highest_semver == 'true' || steps.refs.outputs.push_to_main == 'true' }}
+            type=raw,value=main,enable=${{ steps.refs.outputs.push_to_main == 'true' || steps.refs.outputs.tag_on_main == 'true' }}
           labels: |
             org.opencontainers.image.title=Convertarr
             org.opencontainers.image.description=Sonarr-style daemon that pre-converts media into a Jellyfin direct-play codec set.
