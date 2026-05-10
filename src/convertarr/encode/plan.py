@@ -122,14 +122,34 @@ def _can_hw_decode(file_plan: FilePlan, encoder: EncoderProfile) -> bool:
     fam = _hwaccel_family_for(encoder)
     if fam is None:
         return False
-    src_codec = next(
-        (s.codec_name for s in file_plan.streams
+    src_stream = next(
+        (s for s in file_plan.streams
          if s.codec_type == "video" and s.action == "reencode" and not s.is_attached_pic),
         None,
     )
-    if not src_codec:
+    if src_stream is None or not src_stream.codec_name:
         return False
-    return src_codec in _HW_DECODABLE_CODECS.get(fam, set())
+    if src_stream.codec_name not in _HW_DECODABLE_CODECS.get(fam, set()):
+        return False
+    # 10-bit H.264 (Hi10P) is decoded by VAAPI's Hi profile only on a sliver
+    # of GPUs; most Intel/AMD VAAPI implementations bail with "Failed setup
+    # for format vaapi: hwaccel initialisation returned error", which then
+    # fails the encode because we already committed to the full-GPU pipeline
+    # (no SW fallback path past that point). Same story on QSV. HEVC 10-bit
+    # is fine — Main10 is broadly supported. NVENC's NVDEC handles Hi10P on
+    # Pascal+, so leave cuda alone.
+    if fam in ("vaapi", "qsv") and src_stream.codec_name == "h264" and _is_10bit(src_stream.pix_fmt):
+        return False
+    return True
+
+
+def _is_10bit(pix_fmt: str | None) -> bool:
+    """ffmpeg pixel-format strings encode bit depth in their suffix
+    (yuv420p10le, p010le, etc.). Treat anything advertising 10/12/16-bit as
+    "high bit depth"."""
+    if not pix_fmt:
+        return False
+    return any(tag in pix_fmt for tag in ("p10", "p12", "p16", "p010", "p012", "p016"))
 
 
 def build_ffmpeg_args(
