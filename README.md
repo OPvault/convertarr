@@ -18,36 +18,10 @@ The missing \*arr for your media server. Convertarr plugs into Sonarr and Radarr
 
 ## Quick start (Docker)
 
-`docker compose up -d` with this `docker-compose.yml`:
+Grab the sample [`docker-compose.yml`](docker-compose.yml) (NVIDIA-by-default; VAAPI / CPU notes inline at the bottom of the file), drop it next to a `config/` folder, and:
 
-```yaml
-services:
-  convertarr:
-    image: ghcr.io/opvault/convertarr:latest
-    container_name: convertarr
-    hostname: convertarr
-    restart: always
-    environment:
-      - TZ=Europe/Oslo
-      - PUID=1000
-      - PGID=1000
-    ports:
-      - 6565:6565
-    volumes:
-      - ./config:/config
-      - /path/to/anime:/anime
-      - /path/to/movies:/movies
-      - /path/to/series:/tv
-    # NVIDIA NVENC — needs nvidia-container-toolkit on the host.
-    # Strip this `deploy:` block and pass `--device /dev/dri:/dev/dri`
-    # plus `group_add: [video, render]` instead for VAAPI (Intel/AMD).
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu, compute, utility, video]
+```sh
+docker compose up -d
 ```
 
 Adjust:

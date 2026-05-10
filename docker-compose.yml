@@ -2,52 +2,56 @@
 #
 #   docker compose up -d
 #
-# The image bundles ffmpeg with libx265 (CPU) plus VAAPI / NVENC support;
-# enable the device passthrough that matches your hardware below.
+# The image bundles ffmpeg with libx265 (CPU) plus VAAPI / NVENC support.
+# Default below is NVIDIA — see the bottom of the file for VAAPI / CPU notes.
 
 services:
   convertarr:
     image: ghcr.io/opvault/convertarr:latest
     container_name: convertarr
     hostname: convertarr
-    restart: unless-stopped
+    restart: always
     environment:
       # Match the uid/gid that owns your bind-mounted /config (and ideally
       # your media library too). `id -u` / `id -g` on the host. Set to 0/0
       # to run as root if you can't or won't chown the host dirs.
-      PUID: 1000
-      PGID: 1000
+      - PUID=1000
+      - PGID=1000
       # Standard tzdata zone, e.g. "Europe/Oslo", "America/New_York".
-      TZ: Etc/UTC
+      - TZ=Etc/UTC
     ports:
-      - "6565:6565"
+      - 6565:6565
     volumes:
       # Persistent app state: SQLite DB, logs, runtime settings.
       - ./config:/config
       # Bind-mount your library at the SAME path Sonarr/Radarr use, so the
       # paths Convertarr receives from *arr resolve without translation.
-      # Adjust both sides to match your environment.
-      - /path/to/media:/path/to/media
+      # Add or remove entries to match your layout.
+      - /path/to/anime:/anime
+      - /path/to/movies:/movies
+      - /path/to/series:/tv
 
-    # ---- Hardware acceleration (uncomment ONE block) ----
+    # NVIDIA NVENC. Requires nvidia-container-toolkit on the host.
+    # Drop this whole `deploy:` block to disable.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, utility, video]
 
-    # Intel / AMD VAAPI:
+    # ---- Alternative: Intel / AMD VAAPI ----
+    # Replace the `deploy:` block above with these two keys:
     # devices:
     #   - /dev/dri:/dev/dri
     # group_add:
     #   - "video"      # may need to be a numeric GID on some distros (e.g. "44")
     #   - "render"     # ditto (often "109" on Debian/Ubuntu)
 
-    # NVIDIA NVENC (requires nvidia-container-toolkit on the host):
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu, video]
+    # ---- CPU only ----
+    # Just remove the `deploy:` block. libx265 always works.
 
     # ---- Optional overrides ----
     # environment:
-    #   # Force a specific encoder if auto-detect picks the wrong one.
-    #   CONVERTARR_ENCODER_OVERRIDE: hevc_vaapi
+    #   - CONVERTARR_ENCODER_OVERRIDE=hevc_vaapi   # pin a specific encoder
